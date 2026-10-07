@@ -1,0 +1,9 @@
+// use prisma-8
+
+model Category {
+  id        Int                  @id @default(autoincrement())
+  name      String
+  slug      String               @unique
+  createdAt TimestamptzString    @default(now())
+  updatedAt temporal.updatedAtString()
+}

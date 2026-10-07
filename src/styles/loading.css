@@ -1,0 +1,68 @@
+/* =========================================
+   APP LOADING
+   ========================================= */
+
+@keyframes app-loading-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.app-loading {
+  animation: app-loading-enter 300ms ease-out both;
+}
+
+
+/* Logo */
+
+@keyframes app-loading-logo-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.94);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.app-loading-logo {
+  animation: app-loading-logo-enter 650ms
+    cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+
+/* Saída */
+
+@keyframes app-loading-exit {
+  from {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.app-loading-leaving {
+  pointer-events: none;
+
+  animation: app-loading-exit 500ms
+    cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .app-loading,
+  .app-loading-logo,
+  .app-loading-leaving {
+    animation-duration: 1ms;
+  }
+}
