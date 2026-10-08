@@ -1,71 +1,91 @@
+
 import {
   ArrowRight,
   MapPin,
   ShoppingBag,
 } from "lucide-react";
+
 import { Link } from "react-router-dom";
 
 type HomeHeroProps = {
   locationUrl?: string;
 };
 
+const locationButtonClass = `
+  inline-flex
+  min-h-11
+  w-full
+  items-center
+  justify-center
+  gap-2.5
+
+  rounded-xl
+  border
+  border-orange-400/45
+  bg-orange-950/65
+
+  px-5
+  py-3
+
+  text-sm
+  font-bold
+  text-orange-100
+
+  shadow-lg
+  shadow-black/20
+
+  backdrop-blur-md
+
+  transition-all
+  duration-300
+
+  hover:-translate-y-0.5
+  hover:border-orange-300/70
+  hover:bg-orange-900/75
+  hover:text-white
+
+  focus-visible:outline-2
+  focus-visible:outline-offset-4
+  focus-visible:outline-orange-300
+
+  min-[420px]:w-auto
+
+  motion-reduce:transform-none
+  motion-reduce:transition-none
+`;
+
+const categories = [
+  "Espetinhos",
+  "Lanches",
+  "Pizzas",
+  "Pastéis",
+  "Bebidas",
+];
+
 export function HomeHero({
   locationUrl,
 }: HomeHeroProps) {
-  const locationButtonClass = `
-    inline-flex
-    min-h-12
-    items-center
-    justify-center
-    gap-2
-
-    rounded-xl
-    border
-    border-white/25
-    bg-black/20
-
-    px-5
-    py-3
-
-    text-sm
-    font-bold
-    text-white
-
-    backdrop-blur-md
-
-    transition
-    duration-300
-
-    hover:-translate-y-0.5
-    hover:border-white/40
-    hover:bg-white/15
-
-    focus-visible:outline-2
-    focus-visible:outline-offset-4
-    focus-visible:outline-white
-
-    motion-reduce:transform-none
-    motion-reduce:transition-none
-  `;
-
   return (
     <section
-  aria-labelledby="home-title"
-  className="
-    home-enter
-    flex
-    flex-1
-    items-start
+      aria-labelledby="home-title"
+      className="
+        home-enter
 
-    pt-24
-    sm:pt-28
+        flex
+        min-w-0
+        flex-1
+        items-start
 
-    md:items-center
-    md:pt-20
+        pt-20
 
-    lg:pt-18
-  "
->
+        sm:pt-24
+
+        md:items-center
+        md:pt-16
+
+        lg:pt-14
+      "
+    >
       <div
         className="
           w-full
@@ -75,26 +95,21 @@ export function HomeHero({
           lg:max-w-157.5
         "
       >
-        {/* Identificação */}
-
-        
-
-        {/* Título */}
+        {/* Título principal */}
 
         <h1
           id="home-title"
           className="
-            mt-5
-
-            text-[clamp(2.6rem,11vw,4rem)]
+            text-[clamp(2.4rem,10vw,4rem)]
             font-black
-            leading-[0.98]
+            leading-[1.02]
             tracking-[-0.035em]
             text-white
 
             drop-shadow-lg
 
-            md:mt-6
+            sm:text-[clamp(3rem,7vw,4.5rem)]
+
             md:text-[clamp(3.4rem,5vw,4.8rem)]
           "
         >
@@ -106,6 +121,7 @@ export function HomeHero({
             className="
               mt-2
               block
+
               text-orange-400
 
               md:mt-1
@@ -125,7 +141,9 @@ export function HomeHero({
             text-sm
             font-medium
             leading-6
-            text-white/75
+            text-white/90
+
+            drop-shadow-md
 
             sm:text-base
             sm:leading-7
@@ -142,168 +160,156 @@ export function HomeHero({
         {/* Categorias */}
 
         <div
+          aria-label="Categorias disponíveis"
           className="
-            mt-4
+            mt-5
+
             flex
             flex-wrap
+            items-center
+
             gap-x-2
-            gap-y-1
+            gap-y-2
 
             text-[10px]
-            font-black
+            font-extrabold
             uppercase
-            tracking-[0.13em]
-            text-white/55
+            tracking-widest
+            text-white/90
+
+            drop-shadow-md
 
             sm:text-[11px]
-          "
-          aria-label="Categorias disponíveis"
-        >
-          <span>Espetinhos</span>
-          <span aria-hidden="true">•</span>
 
-          <span>Lanches</span>
-          <span aria-hidden="true">•</span>
-
-          <span>Pizzas</span>
-          <span aria-hidden="true">•</span>
-
-          <span>Pastéis</span>
-          <span aria-hidden="true">•</span>
-
-          <span>Bebidas</span>
-        </div>
-
-        {/* Botões */}
-
-        <div
-          className="
-            mt-6
-            flex
-            flex-col
-            gap-3
-
-            min-[420px]:flex-row
-            min-[420px]:flex-wrap
-
-            md:mt-7
+            md:mt-5
           "
         >
-          <Link
-            to="/cardapio"
-            className="
-              group
-
-              inline-flex
-              min-h-12
-              items-center
-              justify-center
-              gap-3
-
-              rounded-xl
-              bg-orange-600
-
-              px-6
-              py-3
-
-              text-sm
-              font-black
-              text-white
-
-              shadow-xl
-              shadow-orange-950/30
-
-              transition
-              duration-300
-
-              hover:-translate-y-0.5
-              hover:bg-orange-500
-              hover:shadow-2xl
-
-              active:scale-[0.98]
-
-              focus-visible:outline-2
-              focus-visible:outline-offset-4
-              focus-visible:outline-orange-300
-
-              motion-reduce:transform-none
-              motion-reduce:transition-none
-            "
-          >
-            <ShoppingBag
-              size={18}
-              aria-hidden="true"
-            />
-
-            Explorar cardápio
-
-            <ArrowRight
-              size={18}
-              aria-hidden="true"
-              className="
-                transition-transform
-                duration-300
-
-                group-hover:translate-x-1
-
-                motion-reduce:transform-none
-                motion-reduce:transition-none
-              "
-            />
-          </Link>
-
-          {locationUrl ? (
-            <a
-              href={locationUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={locationButtonClass}
-            >
-              <MapPin
-                size={18}
-                aria-hidden="true"
-              />
-
-              Como chegar
-            </a>
-          ) : (
-            <button
-              type="button"
-              disabled
-              title="A localização será adicionada em breve"
+          {categories.map((category, index) => (
+            <span
+              key={category}
               className="
                 inline-flex
-                min-h-12
-                cursor-not-allowed
                 items-center
-                justify-center
                 gap-2
-
-                rounded-xl
-                border
-                border-white/15
-                bg-black/15
-
-                px-5
-                py-3
-
-                text-sm
-                font-bold
-                text-white/45
-
-                backdrop-blur-md
               "
             >
-              <MapPin
-                size={18}
-                aria-hidden="true"
-              />
+              {index > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="
+                    text-orange-400
+                  "
+                >
+                  •
+                </span>
+              )}
 
-              Como chegar
-            </button>
-          )}
+              <span>{category}</span>
+            </span>
+          ))}
         </div>
-      </div>
+
+        {/* Botões de ação */}
+
+        {/* Botões de ação */}
+
+<div
+  className="
+    mt-7
+    flex
+    w-full
+    flex-col
+    items-center
+    justify-center
+    gap-3
+
+    md:mt-8
+    md:flex-row
+    md:flex-wrap
+    md:items-center
+    md:justify-start
+  "
+>
+  {/* Botão principal */}
+
+  <Link
+    to="/cardapio"
+    className="
+      group
+      inline-flex
+      min-h-13
+      w-fit
+      items-center
+      justify-center
+      gap-3
+      whitespace-nowrap
+      rounded-xl
+      bg-linear-to-r
+      from-orange-600
+      to-orange-500
+      px-7
+      py-3.5
+      text-sm
+      font-black
+      text-white
+      shadow-xl
+      shadow-orange-950/50
+      ring-1
+      ring-orange-300/30
+      transition-all
+      duration-300
+      hover:-translate-y-1
+      hover:from-orange-500
+      hover:to-orange-400
+      hover:shadow-2xl
+      active:scale-[0.98]
+      motion-reduce:transform-none
+      motion-reduce:transition-none
+    "
+  >
+    <ShoppingBag size={19} aria-hidden="true" />
+
+    Explorar cardápio
+
+    <ArrowRight
+      size={19}
+      aria-hidden="true"
+      className="
+        transition-transform
+        duration-300
+        group-hover:translate-x-1
+      "
+    />
+  </Link>
+
+  {/* Botão secundário */}
+
+  {locationUrl ? (
+    <a
+      href={locationUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={locationButtonClass}
+    >
+      <MapPin size={18} aria-hidden="true" />
+      Como chegar
+    </a>
+  ) : (
+    <button
+      type="button"
+      disabled
+      className={`
+        ${locationButtonClass}
+        cursor-not-allowed
+        opacity-75
+      `}
+    >
+      <MapPin size={18} aria-hidden="true" />
+      Como chegar
+    </button>
+  )}
+</div>
+</div>
     </section>
   );
 }

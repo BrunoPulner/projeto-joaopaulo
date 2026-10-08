@@ -62,3 +62,46 @@
     animation: none;
   }
 }
+
+/* Animação de desfoque do Hero */
+
+@keyframes heroBlurReveal {
+  0% {
+    filter: blur(0px);
+    transform: scale(1);
+  }
+
+  100% {
+    filter: blur(3px);
+    transform: scale(1.03);
+  }
+}
+
+.hero-background-blur {
+  animation: heroBlurReveal 3s ease-in-out forwards;
+  will-change: filter, transform;
+}
+
+/* Mobile: desfoque mais suave */
+@media (max-width: 767px) {
+  @keyframes heroBlurReveal {
+    0% {
+      filter: blur(0px);
+      transform: scale(1);
+    }
+
+    100% {
+      filter: blur(2px);
+      transform: scale(1.03);
+    }
+  }
+}
+
+/* Acessibilidade */
+@media (prefers-reduced-motion: reduce) {
+  .hero-background-blur {
+    animation: none;
+    filter: blur(3px);
+    transform: scale(1.03);
+  }
+}

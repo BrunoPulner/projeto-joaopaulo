@@ -1,27 +1,82 @@
+
+import { useEffect, useState } from "react";
+
 import { HomeHero } from "./components/HomeHero";
 import { HomeInfoCards } from "./components/HomeInfoCards";
 
 import "../../styles/home.css";
 
 export function HomePage() {
+  const [backgroundLoaded, setBackgroundLoaded] =
+    useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(
+      "(min-width: 768px)"
+    );
+
+    let active = true;
+
+    const loadBackground = () => {
+      setBackgroundLoaded(false);
+
+      const image = new Image();
+
+      image.onload = () => {
+        if (active) {
+          setBackgroundLoaded(true);
+        }
+      };
+
+      image.onerror = () => {
+        if (active) {
+          setBackgroundLoaded(true);
+        }
+      };
+
+      image.src = mediaQuery.matches
+        ? "/images/hero-pc.png"
+        : "/images/hero-cel.png";
+    };
+
+    loadBackground();
+
+    const handleChange = () => {
+      loadBackground();
+    };
+
+    mediaQuery.addEventListener(
+      "change",
+      handleChange
+    );
+
+    return () => {
+      active = false;
+
+      mediaQuery.removeEventListener(
+        "change",
+        handleChange
+      );
+    };
+  }, []);
+
   return (
     <main
       className="
         relative
         isolate
-        min-h-[calc(100dvh-89px)]
+        min-h-dvh
         overflow-hidden
         bg-[#160905]
-
-        sm:min-h-[calc(100dvh-105px)]
       "
     >
-      {/* Background mobile */}
+      {/* Background com animação de blur */}
       <div
         aria-hidden="true"
-        className="
+        className={`
+          pointer-events-none
           absolute
-          inset-0
+          -inset-3
           -z-30
 
           bg-[url('/images/hero-cel.png')]
@@ -30,8 +85,13 @@ export function HomePage() {
           bg-no-repeat
 
           md:bg-[url('/images/hero-pc.png')]
-          md:bg-center
-        "
+
+          ${
+            backgroundLoaded
+              ? "hero-background-blur"
+              : ""
+          }
+        `}
       />
 
       {/* Escurecimento geral */}
@@ -43,13 +103,12 @@ export function HomePage() {
           inset-0
           -z-20
 
-          bg-black/25
-
-          md:bg-black/15
+          bg-black/35
+          md:bg-black/25
         "
       />
 
-      {/* Gradiente para leitura no mobile */}
+      {/* Gradiente de leitura */}
       <div
         aria-hidden="true"
         className="
@@ -59,22 +118,23 @@ export function HomePage() {
           -z-10
 
           bg-linear-to-b
-          from-black/80
-          via-black/40
-          to-black/35
+          from-black/85
+          via-black/55
+          to-black/50
 
           md:bg-linear-to-r
-          md:from-black/90
-          md:via-black/60
-          md:to-black/5
+          md:from-black/95
+          md:via-black/65
+          md:to-black/15
         "
       />
 
+      {/* Conteúdo */}
       <div
         className="
           mx-auto
           flex
-          min-h-[calc(100dvh-89px)]
+          min-h-dvh
           w-full
           max-w-6xl
           flex-col
@@ -83,7 +143,6 @@ export function HomePage() {
           pb-5
           pt-8
 
-          sm:min-h-[calc(100dvh-105px)]
           sm:pb-7
           sm:pt-10
 
