@@ -5,6 +5,8 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { LoginSuccessRedirect } from "../components/LoginSuccessRedirect";
+
 import { LoginForm } from "../components/LoginForm";
 import { LoginIntro } from "../components/LoginIntro";
 
@@ -253,7 +255,7 @@ export function LoginPage() {
                 Acesso seguro à sua conta
               </div>
             </div>
-
+            <LoginSuccessRedirect />
             <LoginForm />
           </div>
         </section>

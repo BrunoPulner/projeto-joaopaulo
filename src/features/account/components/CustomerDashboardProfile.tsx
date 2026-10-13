@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useSession } from "../../../../src/lib/auth-client";
 import {
   CheckCircle2,
   MapPin,
@@ -8,7 +9,6 @@ import {
   ShieldCheck,
   UserRound,
 } from "lucide-react";
-
 type CustomerProfile = {
   name: string;
   cpf: string;
@@ -27,9 +27,6 @@ type CustomerProfile = {
   latitude: string;
   longitude: string;
 };
-
-const storageKey = "customer-profile-demo";
-
 const emptyProfile: CustomerProfile = {
   name: "",
   cpf: "",
@@ -48,27 +45,12 @@ const emptyProfile: CustomerProfile = {
   latitude: "",
   longitude: "",
 };
-
 const inputClass =
   "min-h-12 w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-orange-700 focus:ring-2 focus:ring-orange-700/10";
-
 const labelClass = "mb-2 block text-sm font-semibold text-stone-700";
-
-function loadProfile(): CustomerProfile {
-  try {
-    const saved = localStorage.getItem(storageKey);
-    return saved
-      ? { ...emptyProfile, ...JSON.parse(saved) }
-      : { ...emptyProfile };
-  } catch {
-    return { ...emptyProfile };
-  }
-}
-
 function digits(value: string) {
   return value.replace(/\D/g, "");
 }
-
 function formatCpf(value: string) {
   return digits(value)
     .slice(0, 11)
@@ -76,32 +58,50 @@ function formatCpf(value: string) {
     .replace(/(\d{3})(\d)/, "$1.$2")
     .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
 }
-
 function formatPhone(value: string) {
   const number = digits(value).slice(0, 11);
-
   if (number.length <= 2) return number;
-
   return number
     .replace(/^(\d{2})(\d)/, "($1) $2")
     .replace(/(\d{5})(\d{1,4})$/, "$1-$2");
 }
-
 function formatZipCode(value: string) {
   return digits(value)
     .slice(0, 8)
     .replace(/(\d{5})(\d)/, "$1-$2");
 }
-
 export function CustomerDashboardProfile() {
-  const [profile, setProfile] = useState<CustomerProfile>(loadProfile);
+  const { data: session } = useSession();
+  const googleUser = session?.user;
+  const userId = googleUser?.id;
+  const [profile, setProfile] = useState<CustomerProfile>({ ...emptyProfile });
   const [codeSent, setCodeSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [phoneMessage, setPhoneMessage] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const [locationMessage, setLocationMessage] = useState("");
   const [locating, setLocating] = useState(false);
-
+  useEffect(() => {
+    if (!userId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setProfile({ ...emptyProfile });
+      return;
+    }
+    let savedProfile: CustomerProfile = { ...emptyProfile };
+    try {
+      const saved = localStorage.getItem(`customer-profile-demo:${userId}`);
+      if (saved) {
+        savedProfile = { ...emptyProfile, ...JSON.parse(saved) };
+      }
+    } catch {
+      // Se o armazenamento estiver indisponível, mantém os campos vazios.
+    }
+    setProfile({
+      ...savedProfile,
+      name: googleUser?.name ?? "",
+      email: googleUser?.email ?? "",
+    });
+  }, [userId, googleUser?.name, googleUser?.email]);
   function updateField<K extends keyof CustomerProfile>(
     field: K,
     value: CustomerProfile[K],
@@ -109,7 +109,6 @@ export function CustomerDashboardProfile() {
     setProfile((current) => ({ ...current, [field]: value }));
     setSaveMessage("");
   }
-
   function updateAddress(
     field:
       | "zipCode"
@@ -129,7 +128,6 @@ export function CustomerDashboardProfile() {
     setLocationMessage("");
     setSaveMessage("");
   }
-
   function handlePhoneChange(value: string) {
     setProfile((current) => ({
       ...current,
@@ -141,31 +139,26 @@ export function CustomerDashboardProfile() {
     setPhoneMessage("");
     setSaveMessage("");
   }
-
   function sendVerificationCode() {
     if (digits(profile.phone).length !== 11) {
       setPhoneMessage("Informe um celular com DDD e 11 dígitos.");
       return;
     }
-
     setCodeSent(true);
     setPhoneMessage(
       "Verificação de demonstração: utilize o código 123456.",
     );
   }
-
   function verifyPhone() {
     if (verificationCode !== "123456") {
       setPhoneMessage("Código incorreto. Para testar, utilize 123456.");
       return;
     }
-
     updateField("phoneVerified", true);
     setCodeSent(false);
     setVerificationCode("");
     setPhoneMessage("Telefone validado nesta demonstração.");
   }
-
   function useCurrentLocation() {
     if (!navigator.geolocation) {
       setLocationMessage(
@@ -173,10 +166,8 @@ export function CustomerDashboardProfile() {
       );
       return;
     }
-
     setLocating(true);
     setLocationMessage("");
-
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         setProfile((current) => ({
@@ -199,10 +190,8 @@ export function CustomerDashboardProfile() {
       { enableHighAccuracy: true, timeout: 15000 },
     );
   }
-
   function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     if (
       profile.cpf &&
       digits(profile.cpf).length !== 11
@@ -210,22 +199,26 @@ export function CustomerDashboardProfile() {
       setSaveMessage("Confira o CPF: ele deve ter 11 dígitos.");
       return;
     }
-
     if (digits(profile.phone).length !== 11) {
       setSaveMessage("Confira o celular e inclua o DDD.");
       return;
     }
-
     try {
-      localStorage.setItem(storageKey, JSON.stringify(profile));
-      setSaveMessage("Perfil salvo neste navegador.");
+      if (!userId) {
+        setSaveMessage("Sua sessão expirou. Entre novamente.");
+        return;
+      }
+      localStorage.setItem(
+        `customer-profile-demo:${userId}`,
+        JSON.stringify({ ...profile, name: googleUser?.name ?? "", email: googleUser?.email ?? "" }),
+      );
+      setSaveMessage("Dados complementares salvos neste navegador.");
     } catch {
       setSaveMessage(
         "Não foi possível salvar. Confira as permissões de armazenamento do navegador.",
       );
     }
   }
-
   const addressQuery = [
     profile.street,
     profile.number,
@@ -237,21 +230,16 @@ export function CustomerDashboardProfile() {
   ]
     .filter(Boolean)
     .join(", ");
-
   const hasCoordinates =
     profile.latitude !== "" && profile.longitude !== "";
-
   const canOpenMap =
     hasCoordinates || Boolean(profile.street && profile.city);
-
   const mapQuery = hasCoordinates
     ? `${profile.latitude},${profile.longitude}`
     : addressQuery;
-
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     mapQuery,
   )}`;
-
   return (
     <div className="space-y-7">
       <section className="rounded-3xl bg-linear-to-br from-orange-700 to-orange-900 p-6 text-white shadow-lg shadow-orange-900/10 sm:p-8">
@@ -259,24 +247,20 @@ export function CustomerDashboardProfile() {
           <UserRound size={19} aria-hidden="true" />
           Minha conta
         </span>
-
         <h2 className="mt-3 text-2xl font-black sm:text-3xl">
           Seu perfil, do seu jeito.
         </h2>
-
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-orange-50">
           Mantenha seus dados e endereço atualizados para facilitar
           seus próximos pedidos.
         </p>
       </section>
-
       <form onSubmit={handleSave} className="space-y-6">
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
           <div className="mb-6 flex items-start gap-3">
             <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-700">
               <UserRound size={22} aria-hidden="true" />
             </span>
-
             <div>
               <h2 className="text-lg font-black text-stone-900">
                 Dados pessoais
@@ -286,7 +270,6 @@ export function CustomerDashboardProfile() {
               </p>
             </div>
           </div>
-
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label htmlFor="profile-name" className={labelClass}>
@@ -297,14 +280,11 @@ export function CustomerDashboardProfile() {
                 autoComplete="name"
                 required
                 value={profile.name}
-                onChange={(event) =>
-                  updateField("name", event.target.value)
-                }
+                readOnly
                 placeholder="Seu nome completo"
-                className={inputClass}
+                className={`${inputClass} cursor-not-allowed bg-stone-50 text-stone-500`}
               />
             </div>
-
             <div>
               <label htmlFor="profile-cpf" className={labelClass}>
                 CPF
@@ -320,7 +300,6 @@ export function CustomerDashboardProfile() {
                 className={inputClass}
               />
             </div>
-
             <div>
               <label htmlFor="profile-email" className={labelClass}>
                 E-mail
@@ -330,22 +309,18 @@ export function CustomerDashboardProfile() {
                 type="email"
                 autoComplete="email"
                 value={profile.email}
-                onChange={(event) =>
-                  updateField("email", event.target.value)
-                }
+                readOnly
                 placeholder="voce@exemplo.com"
-                className={inputClass}
+                className={`${inputClass} cursor-not-allowed bg-stone-50 text-stone-500`}
               />
             </div>
           </div>
         </section>
-
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
           <div className="mb-6 flex items-start gap-3">
             <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
               <Phone size={21} aria-hidden="true" />
             </span>
-
             <div>
               <h2 className="text-lg font-black text-stone-900">
                 Telefone de contato
@@ -355,11 +330,9 @@ export function CustomerDashboardProfile() {
               </p>
             </div>
           </div>
-
           <label htmlFor="profile-phone" className={labelClass}>
             Celular com DDD
           </label>
-
           <div className="flex flex-col gap-3 sm:flex-row">
             <input
               id="profile-phone"
@@ -373,7 +346,6 @@ export function CustomerDashboardProfile() {
               placeholder="(42) 99999-9999"
               className={inputClass}
             />
-
             {profile.phoneVerified ? (
               <span className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 text-sm font-bold text-emerald-800">
                 <CheckCircle2 size={18} aria-hidden="true" />
@@ -390,7 +362,6 @@ export function CustomerDashboardProfile() {
               </button>
             )}
           </div>
-
           {codeSent && (
             <div className="mt-4 rounded-xl border border-orange-100 bg-orange-50/60 p-4">
               <label
@@ -399,7 +370,6 @@ export function CustomerDashboardProfile() {
               >
                 Código de verificação
               </label>
-
               <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   id="phone-code"
@@ -415,7 +385,6 @@ export function CustomerDashboardProfile() {
                   placeholder="6 dígitos"
                   className={inputClass}
                 />
-
                 <button
                   type="button"
                   onClick={verifyPhone}
@@ -426,7 +395,6 @@ export function CustomerDashboardProfile() {
               </div>
             </div>
           )}
-
           <p
             role="status"
             aria-live="polite"
@@ -435,13 +403,11 @@ export function CustomerDashboardProfile() {
             {phoneMessage}
           </p>
         </section>
-
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
           <div className="mb-6 flex items-start gap-3">
             <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
               <MapPin size={22} aria-hidden="true" />
             </span>
-
             <div>
               <h2 className="text-lg font-black text-stone-900">
                 Endereço de entrega
@@ -451,7 +417,6 @@ export function CustomerDashboardProfile() {
               </p>
             </div>
           </div>
-
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
               <label htmlFor="profile-zip" className={labelClass}>
@@ -472,7 +437,6 @@ export function CustomerDashboardProfile() {
                 className={inputClass}
               />
             </div>
-
             <div>
               <label htmlFor="profile-neighborhood" className={labelClass}>
                 Bairro
@@ -487,7 +451,6 @@ export function CustomerDashboardProfile() {
                 className={inputClass}
               />
             </div>
-
             <div>
               <label htmlFor="profile-street" className={labelClass}>
                 Rua ou avenida
@@ -503,7 +466,6 @@ export function CustomerDashboardProfile() {
                 className={inputClass}
               />
             </div>
-
             <div>
               <label htmlFor="profile-number" className={labelClass}>
                 Número
@@ -518,7 +480,6 @@ export function CustomerDashboardProfile() {
                 className={inputClass}
               />
             </div>
-
             <div>
               <label htmlFor="profile-city" className={labelClass}>
                 Cidade
@@ -534,7 +495,6 @@ export function CustomerDashboardProfile() {
                 className={inputClass}
               />
             </div>
-
             <div>
               <label htmlFor="profile-state" className={labelClass}>
                 Estado
@@ -556,7 +516,6 @@ export function CustomerDashboardProfile() {
                 className={inputClass}
               />
             </div>
-
             <div>
               <label htmlFor="profile-complement" className={labelClass}>
                 Complemento
@@ -572,7 +531,6 @@ export function CustomerDashboardProfile() {
                 className={inputClass}
               />
             </div>
-
             <div>
               <label htmlFor="profile-reference" className={labelClass}>
                 Ponto de referência
@@ -587,7 +545,6 @@ export function CustomerDashboardProfile() {
                 className={inputClass}
               />
             </div>
-
             <div className="sm:col-span-2">
               <label htmlFor="profile-notes" className={labelClass}>
                 Orientações para a entrega
@@ -604,18 +561,15 @@ export function CustomerDashboardProfile() {
               />
             </div>
           </div>
-
           <div className="mt-6 rounded-2xl border border-sky-100 bg-sky-50/50 p-5">
             <h3 className="font-bold text-stone-900">
               Localização no mapa
             </h3>
-
             <p className="mt-2 text-sm leading-relaxed text-stone-600">
               Use sua localização atual quando estiver no endereço de
               entrega. Você também pode conferir o endereço preenchido
               no Google Maps.
             </p>
-
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button
                 type="button"
@@ -628,7 +582,6 @@ export function CustomerDashboardProfile() {
                   ? "Obtendo localização..."
                   : "Usar localização atual"}
               </button>
-
               {canOpenMap && (
                 <a
                   href={mapsUrl}
@@ -641,14 +594,12 @@ export function CustomerDashboardProfile() {
                 </a>
               )}
             </div>
-
             {hasCoordinates && (
               <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-800">
                 <CheckCircle2 size={17} aria-hidden="true" />
                 Localização vinculada ao endereço
               </p>
             )}
-
             <p
               role="status"
               aria-live="polite"
@@ -658,7 +609,6 @@ export function CustomerDashboardProfile() {
             </p>
           </div>
         </section>
-
         <div className="flex flex-col gap-4 rounded-2xl border border-orange-100 bg-orange-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
           <p
             role="status"
@@ -667,7 +617,6 @@ export function CustomerDashboardProfile() {
           >
             {saveMessage || "Salve suas alterações antes de sair desta tela."}
           </p>
-
           <button
             type="submit"
             className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-700 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700"

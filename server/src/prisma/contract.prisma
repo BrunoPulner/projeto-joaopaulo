@@ -1,9 +1,155 @@
+
 // use prisma-8
 
+// ============================================
+// CATEGORIAS DO CARDÁPIO
+// ============================================
+
 model Category {
-  id        Int                  @id @default(autoincrement())
-  name      String
-  slug      String               @unique
-  createdAt TimestamptzString    @default(now())
+  id          Int     @id @default(autoincrement())
+  name        String
+  slug        String  @unique
+  description String?
+  imageUrl    String?
+
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  // RELAÇÕES
+  products Product[]
+  addons   AddonCategory[]
+
+  createdAt TimestamptzString @default(now())
   updatedAt temporal.updatedAtString()
+}
+
+// ============================================
+// PRODUTOS
+// ============================================
+
+model Product {
+  id Int @id @default(autoincrement())
+
+  // Categoria à qual o produto pertence
+  categoryId Int
+
+  category Category @relation(
+    fields: [categoryId],
+    references: [id]
+  )
+
+  name        String
+  slug        String  @unique
+  description String?
+  imageUrl    String?
+
+  // Valor do produto em centavos
+  priceCents Int @default(0)
+
+  // Controle administrativo
+  isActive    Boolean @default(true)
+  isAvailable Boolean @default(true)
+  isFeatured  Boolean @default(false)
+
+  sortOrder Int @default(0)
+
+  // Configurações de sabores
+  allowsFlavors Boolean @default(false)
+  maxFlavors    Int     @default(1)
+
+  // RELAÇÕES
+  flavors ProductFlavor[]
+
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+
+  @@index([categoryId])
+}
+
+// ============================================
+// SABORES DE PRODUTOS
+// ============================================
+
+model ProductFlavor {
+  id Int @id @default(autoincrement())
+
+  // Produto ao qual o sabor pertence
+  productId Int
+
+  product Product @relation(
+    fields: [productId],
+    references: [id]
+  )
+
+  name        String
+  description String?
+  imageUrl    String?
+
+  // Acréscimo do sabor em centavos
+  additionalPriceCents Int @default(0)
+
+  // Sabores nobres
+  isPremium Boolean @default(false)
+
+  // Acréscimo extra para sabores nobres
+  premiumAdditionalCents Int @default(0)
+
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+
+  @@index([productId])
+}
+
+// ============================================
+// ADICIONAIS
+// ============================================
+
+model Addon {
+  id Int @id @default(autoincrement())
+
+  name        String
+  description String?
+  imageUrl    String?
+
+  // Valor do adicional em centavos
+  priceCents Int
+
+  isActive Boolean @default(true)
+
+  // RELAÇÕES
+  categories AddonCategory[]
+
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+}
+
+// ============================================
+// CATEGORIAS PERMITIDAS PARA ADICIONAIS
+// ============================================
+
+model AddonCategory {
+  id Int @id @default(autoincrement())
+
+  addonId    Int
+  categoryId Int
+
+  // RELAÇÕES
+  addon Addon @relation(
+    fields: [addonId],
+    references: [id]
+  )
+
+  category Category @relation(
+    fields: [categoryId],
+    references: [id]
+  )
+
+  // Evita associar o mesmo adicional
+  // à mesma categoria mais de uma vez
+  @@unique([addonId, categoryId])
+
+  @@index([categoryId])
 }

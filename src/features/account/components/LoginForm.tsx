@@ -2,6 +2,8 @@ import { useState, type FormEvent } from "react";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import { GoogleLoginButton } from "../../auth/components/GoogleLoginButton";
+
 import {
   endAdminDemoSession,
   isDemoAdmin,
@@ -100,6 +102,8 @@ export function LoginForm() {
             aria-describedby={error ? "login-error" : undefined}
             className="min-h-12 w-full rounded-xl border border-stone-200 bg-white pl-11 pr-12 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-orange-600 focus:ring-4 focus:ring-orange-600/10"
           />
+
+          <GoogleLoginButton />
 
           <button
             type="button"

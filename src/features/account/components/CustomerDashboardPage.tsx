@@ -1,59 +1,127 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
 
 import {
-  CustomerDashboardSidebar,
-  type CustomerDashboardSection,
-} from "../components/CustomerDashboardSidebar";
-import { CustomerDashboardOverview } from "../components/CustomerDashboardOverview";
-import { CustomerDashboardOrders } from "../components/CustomerDashboardOrders";
-import { CustomerDashboardProfile } from "../components/CustomerDashboardProfile";
+  CheckCircle2,
+  Clock3,
+  ShoppingBag,
+  UserRound,
+} from "lucide-react";
+import { Link } from "react-router-dom";
 
-const sectionTitles: Record<CustomerDashboardSection, string> = {
-  overview: "Visão geral",
-  orders: "Meus pedidos",
-  profile: "Meu perfil",
-};
+import { useSession } from "../../../../src/lib/auth-client";
 
-export function CustomerDashboardPage() {
-  const [activeSection, setActiveSection] =
-    useState<CustomerDashboardSection>("overview");
+const stats = [
+  {
+    label: "Pedidos no total",
+    value: "0",
+    icon: ShoppingBag,
+  },
+  {
+    label: "Em andamento",
+    value: "0",
+    icon: Clock3,
+  },
+  {
+    label: "Concluídos",
+    value: "0",
+    icon: CheckCircle2,
+  },
+];
+
+export function CustomerDashboardOverview() {
+  const { data: session } = useSession();
+
+  const user = session?.user;
+
+  const firstName = user?.name?.trim().split(/\s+/)[0] || "Cliente";
 
   return (
-    <div className="min-h-screen bg-[#fffaf5]">
-      <CustomerDashboardSidebar
-        activeSection={activeSection}
-        onSectionChange={setActiveSection}
-      />
-
-      <main className="min-h-screen pb-24 md:ml-64 md:pb-0">
-        <header className="sticky top-0 z-20 border-b border-stone-200 bg-white/95 backdrop-blur">
-          <div className="mx-auto flex min-h-20 max-w-6xl items-center justify-between gap-4 px-5 md:px-8">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-orange-700">
-                Área do cliente
-              </p>
-
-              <h1 className="mt-1 text-xl font-black text-stone-900">
-                {sectionTitles[activeSection]}
-              </h1>
-            </div>
-
-            <Link
-              to="/"
-              className="rounded-xl border border-stone-200 px-4 py-2.5 text-sm font-semibold text-stone-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
-            >
-              Voltar à loja
-            </Link>
+    <div className="space-y-8">
+      <section className="overflow-hidden rounded-3xl bg-linear-to-br from-orange-700 to-orange-900 p-6 text-white shadow-lg shadow-orange-900/10 sm:p-9">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-white/15">
+            {user?.image ? (
+              <img
+                src={user.image}
+                alt={`Foto de ${user.name}`}
+                referrerPolicy="no-referrer"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <UserRound
+                size={30}
+                aria-hidden="true"
+                className="text-white"
+              />
+            )}
           </div>
-        </header>
 
-        <div className="mx-auto max-w-6xl px-5 py-8 md:px-8 md:py-10">
-          {activeSection === "overview" && <CustomerDashboardOverview />}
-          {activeSection === "orders" && <CustomerDashboardOrders />}
-          {activeSection === "profile" && <CustomerDashboardProfile />}
+          <div>
+            <p className="text-sm font-semibold text-orange-100">
+              Bem-vindo ao seu espaço
+            </p>
+
+            <h2 className="mt-1 text-2xl font-black leading-tight sm:text-3xl">
+              Olá, {firstName}!
+            </h2>
+
+            <p className="mt-1 text-sm text-orange-100">
+              Que bom ter você por aqui.
+            </p>
+          </div>
         </div>
-      </main>
+
+        <p className="mt-6 max-w-xl text-sm leading-relaxed text-orange-50">
+          Acompanhe seus pedidos, consulte seu histórico de compras
+          e encontre seus sabores favoritos no cardápio.
+        </p>
+
+        <Link
+          to="/cardapio"
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-orange-800 transition hover:bg-orange-50"
+        >
+          Explorar cardápio
+        </Link>
+      </section>
+
+      <section aria-label="Resumo dos pedidos">
+        <h2 className="text-lg font-black text-stone-900">
+          Resumo dos pedidos
+        </h2>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {stats.map(({ label, value, icon: Icon }) => (
+            <article
+              key={label}
+              className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-stone-600">
+                  {label}
+                </p>
+
+                <span className="flex size-10 items-center justify-center rounded-xl bg-orange-50 text-orange-700">
+                  <Icon size={20} aria-hidden="true" />
+                </span>
+              </div>
+
+              <p className="mt-4 text-3xl font-black text-stone-900">
+                {value}
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-black text-stone-900">
+          Pedidos recentes
+        </h2>
+
+        <p className="mt-2 text-sm leading-relaxed text-stone-600">
+          Seus pedidos aparecerão aqui quando você fizer a primeira
+          compra.
+        </p>
+      </section>
     </div>
   );
 }
