@@ -23,6 +23,10 @@
     "ProductFlavor": {
       "model": "ProductFlavor",
       "namespace": "public"
+    },
+    "Subcategory": {
+      "model": "Subcategory",
+      "namespace": "public"
     }
   },
   "domain": {
@@ -306,6 +310,21 @@
                   "model": "Product",
                   "namespace": "public"
                 }
+              },
+              "subcategories": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "categoryId"
+                  ]
+                },
+                "to": {
+                  "model": "Subcategory",
+                  "namespace": "public"
+                }
               }
             },
             "storage": {
@@ -442,6 +461,13 @@
                   "kind": "scalar"
                 }
               },
+              "subcategoryId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "updatedAt": {
                 "nullable": false,
                 "type": {
@@ -479,6 +505,22 @@
                 },
                 "to": {
                   "model": "ProductFlavor",
+                  "namespace": "public"
+                }
+              },
+              "subcategory": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "subcategoryId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Subcategory",
                   "namespace": "public"
                 }
               }
@@ -526,6 +568,9 @@
                 },
                 "sortOrder": {
                   "column": "sortOrder"
+                },
+                "subcategoryId": {
+                  "column": "subcategoryId"
                 },
                 "updatedAt": {
                   "column": "updatedAt"
@@ -681,6 +726,129 @@
               },
               "namespaceId": "public",
               "table": "ProductFlavor"
+            }
+          },
+          "Subcategory": {
+            "fields": {
+              "categoryId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "isActive": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "name": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "slug": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "sortOrder": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "category": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "categoryId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Category",
+                  "namespace": "public"
+                }
+              },
+              "products": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "subcategoryId"
+                  ]
+                },
+                "to": {
+                  "model": "Product",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "categoryId": {
+                  "column": "categoryId"
+                },
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "isActive": {
+                  "column": "isActive"
+                },
+                "name": {
+                  "column": "name"
+                },
+                "slug": {
+                  "column": "slug"
+                },
+                "sortOrder": {
+                  "column": "sortOrder"
+                },
+                "updatedAt": {
+                  "column": "updatedAt"
+                }
+              },
+              "namespaceId": "public",
+              "table": "Subcategory"
             }
           }
         }
@@ -1031,6 +1199,11 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "subcategoryId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
                 "updatedAt": {
                   "codecId": "pg/timestamptz-string@1",
                   "nativeType": "timestamptz",
@@ -1053,6 +1226,22 @@
                     "namespaceId": "public",
                     "tableName": "Category"
                   }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "subcategoryId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "Product"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "Subcategory"
+                  }
                 }
               ],
               "indexes": [
@@ -1062,6 +1251,14 @@
                   ],
                   "name": "Product_categoryId_idx_15c304f2",
                   "prefix": "Product_categoryId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "subcategoryId"
+                  ],
+                  "name": "Product_subcategoryId_idx_d4b355f2",
+                  "prefix": "Product_subcategoryId_idx",
                   "unique": false
                 }
               ],
@@ -1203,6 +1400,107 @@
                 ]
               },
               "uniques": []
+            },
+            "Subcategory": {
+              "columns": {
+                "categoryId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "createdAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "isActive": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "name": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "slug": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "sortOrder": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "updatedAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "categoryId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "Subcategory"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "Category"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "categoryId"
+                  ],
+                  "name": "Subcategory_categoryId_idx_15c304f2",
+                  "prefix": "Subcategory_categoryId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "categoryId",
+                    "slug"
+                  ]
+                }
+              ]
             }
           }
         },
@@ -1210,10 +1508,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "7a2b8e0095c4366431873f939e0b3db31eac9be1dca2eb48ea5710b288a97b1c"
+    "storageHash": "b6b9b9060086dd12d72b2e6a3d6688c6e8c43f17d099107931f92a17be037862"
   },
   "execution": {
-    "executionHash": "82a4a0b8b035f8d5bcc41d96a0678819be5bd3d9a75a4477bc6fb3c169147c04",
+    "executionHash": "4ccebf974096d89a6f16f7beadce0d0a25c188a23f3499f8b4747d1a84499e9f",
     "mutations": {
       "defaults": [
         {
@@ -1272,6 +1570,21 @@
           },
           "ref": {
             "entry": "ProductFlavor",
+            "field": "updatedAt",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "timestampNow",
+            "kind": "generator"
+          },
+          "onUpdate": {
+            "id": "timestampNow",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "Subcategory",
             "field": "updatedAt",
             "namespace": "public"
           }

@@ -8,6 +8,13 @@ import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth.js";
 import { categoriesRouter } from "./modules/categories/categories.routes.js";
 
+import { subcategoriesRouter } from "./modules/subcategories/subcategories.routes.js";
+
+import { productsRouter } from "./modules/products/product.routes.js";
+import { uploadsRouter } from "./modules/uploads/uploads.routes.js";
+
+import { productImagesRouter } from "./modules/uploads/productImages.routes.js";
+
 const app = express();
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -42,6 +49,14 @@ app.get("/health", (_request, response) => {
 
 // 5. Rotas de categorias
 app.use("/api/categories", categoriesRouter);
+
+app.use("/api/subcategories", subcategoriesRouter);
+
+app.use("/api/products", productsRouter);
+
+app.use("/api/admin/uploads", uploadsRouter);
+
+app.use("/api/images", productImagesRouter);
 
 // 6. Inicialização do servidor
 app.listen(PORT, () => {

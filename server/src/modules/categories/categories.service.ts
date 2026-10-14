@@ -1,17 +1,4 @@
-import "dotenv/config";
-
-import { Pool } from "pg";
-
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL não configurada.");
-}
-
-const pool = new Pool({
-  connectionString: databaseUrl,
-  max: 5,
-});
+import { pool } from "../../lib/db.js";
 
 export interface CategoryInput {
   name: string;

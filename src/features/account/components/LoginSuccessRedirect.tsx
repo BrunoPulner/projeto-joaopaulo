@@ -1,29 +1,59 @@
+
 import { useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { useSession } from "../../../../src/lib/auth-client";
+import {
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+
+import { useSession } from "../../../lib/auth-client";
 
 export function LoginSuccessRedirect() {
   const { data: session, isPending } = useSession();
+
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
   const redirected = useRef(false);
 
-  const loginSuccess = searchParams.get("login") === "success";
+  const loginSuccess =
+    searchParams.get("login") === "success";
 
   useEffect(() => {
-    if (isPending || !session?.user || redirected.current) {
+    if (
+      isPending ||
+      !session?.user ||
+      redirected.current
+    ) {
       return;
     }
 
+    const user = session.user as typeof session.user & {
+      role?: string;
+    };
+
+    const destination =
+      user.role === "ADMIN"
+        ? "/dashboard-admin"
+        : user.role === "CUSTOMER"
+          ? "/dashboard"
+          : null;
+
+    if (!destination) return;
+
     redirected.current = true;
 
-    navigate("/dashboard", {
+    navigate(destination, {
       replace: true,
       state: {
         loginSuccess,
       },
     });
-  }, [isPending, session, navigate, loginSuccess]);
+  }, [
+    isPending,
+    session,
+    navigate,
+    loginSuccess,
+  ]);
 
   if (isPending && loginSuccess) {
     return (

@@ -73,12 +73,19 @@ function handleError(error: unknown) {
   };
 }
 
-export const listCategories: RequestHandler = async (req, res) => {
+export const listCategories: RequestHandler = async (_req, res) => {
   try {
-    const includeInactive = req.query.includeInactive === "true";
+    const categories = await findAllCategories(false);
+    res.status(200).json(categories);
+  } catch (error) {
+    const result = handleError(error);
+    res.status(result.status).json({ message: result.message });
+  }
+};
 
-    const categories = await findAllCategories(includeInactive);
-
+export const listAdminCategories: RequestHandler = async (_req, res) => {
+  try {
+    const categories = await findAllCategories(true);
     res.status(200).json(categories);
   } catch (error) {
     const result = handleError(error);

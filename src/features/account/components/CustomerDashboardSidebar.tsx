@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   CircleUserRound,
   LayoutDashboard,
+  LoaderCircle,
   LogOut,
   ReceiptText,
 } from "lucide-react";
@@ -58,15 +59,21 @@ export function CustomerDashboardSidebar({
 
       if (result.error) {
         setLogoutError(
-          "Não foi possível sair da conta. Tente novamente.",
+          "Não foi possível encerrar sua sessão. Tente novamente.",
         );
         return;
       }
 
-      navigate("/", { replace: true });
-    } catch {
+      // Sessão encerrada com sucesso no Better Auth.
+      // Redireciona para a página inicial.
+      navigate("/", {
+        replace: true,
+      });
+    } catch (error) {
+      console.error("Erro ao sair da conta:", error);
+
       setLogoutError(
-        "Erro de conexão ao encerrar a sessão.",
+        "Erro de conexão ao encerrar a sessão. Tente novamente.",
       );
     } finally {
       setLoggingOut(false);
@@ -105,8 +112,9 @@ export function CustomerDashboardSidebar({
               key={id}
               type="button"
               aria-current={isActive ? "page" : undefined}
+              disabled={loggingOut}
               onClick={() => onSectionChange(id)}
-              className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold transition-colors md:flex-row md:justify-start md:gap-3 md:px-3 md:py-3 md:text-sm ${
+              className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold transition-colors disabled:opacity-50 md:flex-row md:justify-start md:gap-3 md:px-3 md:py-3 md:text-sm ${
                 isActive
                   ? "bg-orange-50 text-orange-800"
                   : "text-stone-600 hover:bg-stone-50 hover:text-orange-700"
@@ -120,9 +128,35 @@ export function CustomerDashboardSidebar({
             </button>
           );
         })}
+
+        {/* LOGOUT MOBILE */}
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          aria-label={
+            loggingOut ? "Saindo da conta" : "Sair da conta"
+          }
+          className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 md:hidden"
+        >
+          {loggingOut ? (
+            <LoaderCircle
+              size={20}
+              className="animate-spin"
+              aria-hidden="true"
+            />
+          ) : (
+            <LogOut size={20} aria-hidden="true" />
+          )}
+
+          <span className="truncate">
+            {loggingOut ? "Saindo..." : "Sair"}
+          </span>
+        </button>
       </nav>
 
-      {/* LOGOUT */}
+      {/* LOGOUT DESKTOP */}
 
       <div className="mt-auto hidden md:block">
         <button
@@ -131,22 +165,32 @@ export function CustomerDashboardSidebar({
           disabled={loggingOut}
           className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-stone-600 transition-colors hover:bg-stone-50 hover:text-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <LogOut size={19} aria-hidden="true" />
+          {loggingOut ? (
+            <LoaderCircle
+              size={19}
+              className="animate-spin"
+              aria-hidden="true"
+            />
+          ) : (
+            <LogOut size={19} aria-hidden="true" />
+          )}
 
           {loggingOut
             ? "Saindo da conta..."
             : "Sair da conta"}
         </button>
-
-        {logoutError && (
-          <p
-            role="alert"
-            className="mt-2 px-3 text-xs text-red-600"
-          >
-            {logoutError}
-          </p>
-        )}
       </div>
+
+      {/* ERRO DE LOGOUT */}
+
+      {logoutError && (
+        <p
+          role="alert"
+          className="absolute bottom-full left-2 right-2 mb-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 shadow-md md:static md:mt-2 md:border-0 md:bg-transparent md:px-3 md:shadow-none"
+        >
+          {logoutError}
+        </p>
+      )}
     </aside>
   );
 }

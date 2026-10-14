@@ -16,12 +16,56 @@ model Category {
   sortOrder   Int     @default(0)
 
   // RELAÇÕES
-  products Product[]
-  addons   AddonCategory[]
+  products      Product[]
+  subcategories Subcategory[]
+  addons        AddonCategory[]
 
   createdAt TimestamptzString @default(now())
   updatedAt temporal.updatedAtString()
 }
+
+
+
+// ============================================
+// SUBCATEGORIAS DO CARDÁPIO
+// ============================================
+
+model Subcategory {
+  id Int @id @default(autoincrement())
+
+  // Categoria principal
+  categoryId Int
+
+  category Category @relation(
+    fields: [categoryId],
+    references: [id]
+  )
+
+  name String
+  slug String
+
+  // Controle administrativo
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  // RELAÇÕES
+  products Product[]
+
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+
+  // O slug deve ser único dentro da categoria.
+  // Ex.: "doces" pode existir em Pastéis e Pizzas.
+  @@unique([categoryId, slug])
+
+  @@index([categoryId])
+}
+
+
+// ============================================
+// PRODUTOS
+// ============================================
+
 
 // ============================================
 // PRODUTOS
@@ -30,7 +74,7 @@ model Category {
 model Product {
   id Int @id @default(autoincrement())
 
-  // Categoria à qual o produto pertence
+  // CATEGORIA PRINCIPAL
   categoryId Int
 
   category Category @relation(
@@ -38,12 +82,20 @@ model Product {
     references: [id]
   )
 
+  // SUBCATEGORIA OPCIONAL
+  subcategoryId Int?
+
+  subcategory Subcategory? @relation(
+    fields: [subcategoryId],
+    references: [id]
+  )
+
   name        String
-  slug        String  @unique
+  slug        String @unique
   description String?
   imageUrl    String?
 
-  // Valor do produto em centavos
+  // Valor em centavos
   priceCents Int @default(0)
 
   // Controle administrativo
@@ -53,7 +105,7 @@ model Product {
 
   sortOrder Int @default(0)
 
-  // Configurações de sabores
+  // Configuração de sabores
   allowsFlavors Boolean @default(false)
   maxFlavors    Int     @default(1)
 
@@ -64,7 +116,9 @@ model Product {
   updatedAt temporal.updatedAtString()
 
   @@index([categoryId])
+  @@index([subcategoryId])
 }
+
 
 // ============================================
 // SABORES DE PRODUTOS
