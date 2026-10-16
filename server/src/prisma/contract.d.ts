@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'b6b9b9060086dd12d72b2e6a3d6688c6e8c43f17d099107931f92a17be037862'>;
+  StorageHashBase<'63851605e27f76fd6ef035b3adccbd529a33f7e7324c66f875eb5894bdd46035'>;
 export type ExecutionHash =
   ExecutionHashBase<'4ccebf974096d89a6f16f7beadce0d0a25c188a23f3499f8b4747d1a84499e9f'>;
 export type ProfileHash =
@@ -277,6 +277,7 @@ export type FieldOutputTypes = {
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly Product: {
+      readonly allowsAddons: CodecTypes['pg/bool@1']['output'];
       readonly allowsFlavors: CodecTypes['pg/bool@1']['output'];
       readonly categoryId: CodecTypes['pg/int4@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -288,11 +289,20 @@ export type FieldOutputTypes = {
       readonly isFeatured: CodecTypes['pg/bool@1']['output'];
       readonly maxFlavors: CodecTypes['pg/int4@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
+      readonly pizzaSlices: CodecTypes['pg/int4@1']['output'] | null;
       readonly priceCents: CodecTypes['pg/int4@1']['output'];
+      readonly pricingType: 'FIXED' | 'PIZZA_CUSTOM';
       readonly slug: CodecTypes['pg/text@1']['output'];
       readonly sortOrder: CodecTypes['pg/int4@1']['output'];
       readonly subcategoryId: CodecTypes['pg/int4@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    };
+    readonly ProductAddon: {
+      readonly addonId: CodecTypes['pg/int4@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly isActive: CodecTypes['pg/bool@1']['output'];
+      readonly productId: CodecTypes['pg/int4@1']['output'];
+      readonly sortOrder: CodecTypes['pg/int4@1']['output'];
     };
     readonly ProductFlavor: {
       readonly additionalPriceCents: CodecTypes['pg/int4@1']['output'];
@@ -349,6 +359,7 @@ export type FieldInputTypes = {
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly Product: {
+      readonly allowsAddons: CodecTypes['pg/bool@1']['input'];
       readonly allowsFlavors: CodecTypes['pg/bool@1']['input'];
       readonly categoryId: CodecTypes['pg/int4@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -360,11 +371,20 @@ export type FieldInputTypes = {
       readonly isFeatured: CodecTypes['pg/bool@1']['input'];
       readonly maxFlavors: CodecTypes['pg/int4@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
+      readonly pizzaSlices: CodecTypes['pg/int4@1']['input'] | null;
       readonly priceCents: CodecTypes['pg/int4@1']['input'];
+      readonly pricingType: 'FIXED' | 'PIZZA_CUSTOM';
       readonly slug: CodecTypes['pg/text@1']['input'];
       readonly sortOrder: CodecTypes['pg/int4@1']['input'];
       readonly subcategoryId: CodecTypes['pg/int4@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
+    };
+    readonly ProductAddon: {
+      readonly addonId: CodecTypes['pg/int4@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly isActive: CodecTypes['pg/bool@1']['input'];
+      readonly productId: CodecTypes['pg/int4@1']['input'];
+      readonly sortOrder: CodecTypes['pg/int4@1']['input'];
     };
     readonly ProductFlavor: {
       readonly additionalPriceCents: CodecTypes['pg/int4@1']['input'];
@@ -421,6 +441,7 @@ export type StorageColumnTypes = {
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly Product: {
+      readonly allowsAddons: CodecTypes['pg/bool@1']['output'];
       readonly allowsFlavors: CodecTypes['pg/bool@1']['output'];
       readonly categoryId: CodecTypes['pg/int4@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -432,11 +453,20 @@ export type StorageColumnTypes = {
       readonly isFeatured: CodecTypes['pg/bool@1']['output'];
       readonly maxFlavors: CodecTypes['pg/int4@1']['output'];
       readonly name: CodecTypes['pg/text@1']['output'];
+      readonly pizzaSlices: CodecTypes['pg/int4@1']['output'] | null;
       readonly priceCents: CodecTypes['pg/int4@1']['output'];
+      readonly pricingType: 'FIXED' | 'PIZZA_CUSTOM';
       readonly slug: CodecTypes['pg/text@1']['output'];
       readonly sortOrder: CodecTypes['pg/int4@1']['output'];
       readonly subcategoryId: CodecTypes['pg/int4@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    };
+    readonly ProductAddon: {
+      readonly addonId: CodecTypes['pg/int4@1']['output'];
+      readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly isActive: CodecTypes['pg/bool@1']['output'];
+      readonly productId: CodecTypes['pg/int4@1']['output'];
+      readonly sortOrder: CodecTypes['pg/int4@1']['output'];
     };
     readonly ProductFlavor: {
       readonly additionalPriceCents: CodecTypes['pg/int4@1']['output'];
@@ -493,6 +523,7 @@ export type StorageColumnInputTypes = {
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly Product: {
+      readonly allowsAddons: CodecTypes['pg/bool@1']['input'];
       readonly allowsFlavors: CodecTypes['pg/bool@1']['input'];
       readonly categoryId: CodecTypes['pg/int4@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -504,11 +535,20 @@ export type StorageColumnInputTypes = {
       readonly isFeatured: CodecTypes['pg/bool@1']['input'];
       readonly maxFlavors: CodecTypes['pg/int4@1']['input'];
       readonly name: CodecTypes['pg/text@1']['input'];
+      readonly pizzaSlices: CodecTypes['pg/int4@1']['input'] | null;
       readonly priceCents: CodecTypes['pg/int4@1']['input'];
+      readonly pricingType: 'FIXED' | 'PIZZA_CUSTOM';
       readonly slug: CodecTypes['pg/text@1']['input'];
       readonly sortOrder: CodecTypes['pg/int4@1']['input'];
       readonly subcategoryId: CodecTypes['pg/int4@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
+    };
+    readonly ProductAddon: {
+      readonly addonId: CodecTypes['pg/int4@1']['input'];
+      readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly isActive: CodecTypes['pg/bool@1']['input'];
+      readonly productId: CodecTypes['pg/int4@1']['input'];
+      readonly sortOrder: CodecTypes['pg/int4@1']['input'];
     };
     readonly ProductFlavor: {
       readonly additionalPriceCents: CodecTypes['pg/int4@1']['input'];
@@ -548,7 +588,8 @@ export namespace Models {
     priceCents: CodecTypes['pg/int4@1']['output'];
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     categories: public_AddonCategory[];
-    readonly [RelationKeys]?: 'categories';
+    products: public_ProductAddon[];
+    readonly [RelationKeys]?: 'categories' | 'products';
   };
   export type public_AddonCategory = {
     addonId: CodecTypes['pg/int4@1']['output'];
@@ -574,6 +615,7 @@ export namespace Models {
     readonly [RelationKeys]?: 'addons' | 'products' | 'subcategories';
   };
   export type public_Product = {
+    allowsAddons: CodecTypes['pg/bool@1']['output'];
     allowsFlavors: CodecTypes['pg/bool@1']['output'];
     categoryId: CodecTypes['pg/int4@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -585,15 +627,28 @@ export namespace Models {
     isFeatured: CodecTypes['pg/bool@1']['output'];
     maxFlavors: CodecTypes['pg/int4@1']['output'];
     name: CodecTypes['pg/text@1']['output'];
+    pizzaSlices: CodecTypes['pg/int4@1']['output'] | null;
     priceCents: CodecTypes['pg/int4@1']['output'];
+    pricingType: 'FIXED' | 'PIZZA_CUSTOM';
     slug: CodecTypes['pg/text@1']['output'];
     sortOrder: CodecTypes['pg/int4@1']['output'];
     subcategoryId: CodecTypes['pg/int4@1']['output'] | null;
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    addons: public_ProductAddon[];
     category: public_Category;
     flavors: public_ProductFlavor[];
     subcategory: public_Subcategory | null;
-    readonly [RelationKeys]?: 'category' | 'flavors' | 'subcategory';
+    readonly [RelationKeys]?: 'addons' | 'category' | 'flavors' | 'subcategory';
+  };
+  export type public_ProductAddon = {
+    addonId: CodecTypes['pg/int4@1']['output'];
+    id: CodecTypes['pg/int4@1']['output'];
+    isActive: CodecTypes['pg/bool@1']['output'];
+    productId: CodecTypes['pg/int4@1']['output'];
+    sortOrder: CodecTypes['pg/int4@1']['output'];
+    addon: public_Addon;
+    product: public_Product;
+    readonly [RelationKeys]?: 'addon' | 'product';
   };
   export type public_ProductFlavor = {
     additionalPriceCents: CodecTypes['pg/int4@1']['output'];
@@ -632,6 +687,7 @@ export declare const models: {
     AddonCategory: Models.public_AddonCategory;
     Category: Models.public_Category;
     Product: Models.public_Product;
+    ProductAddon: Models.public_ProductAddon;
     ProductFlavor: Models.public_ProductFlavor;
     Subcategory: Models.public_Subcategory;
   };
@@ -845,6 +901,15 @@ type ContractBase = Omit<
             };
             readonly Product: {
               columns: {
+                readonly allowsAddons: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
                 readonly allowsFlavors: {
                   readonly nativeType: 'bool';
                   readonly codecId: 'pg/bool@1';
@@ -925,6 +990,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
                 };
+                readonly pizzaSlices: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                };
                 readonly priceCents: {
                   readonly nativeType: 'int4';
                   readonly codecId: 'pg/int4@1';
@@ -932,6 +1002,15 @@ type ContractBase = Omit<
                   readonly default: {
                     readonly kind: 'literal';
                     readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+                readonly pricingType: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'FIXED'>;
                   };
                 };
                 readonly slug: {
@@ -969,6 +1048,12 @@ type ContractBase = Omit<
                   readonly unique: false;
                 },
                 {
+                  readonly name: 'Product_pricingType_idx_b9ac3cf1';
+                  readonly prefix: 'Product_pricingType_idx';
+                  readonly columns: readonly ['pricingType'];
+                  readonly unique: false;
+                },
+                {
                   readonly name: 'Product_subcategoryId_idx_d4b355f2';
                   readonly prefix: 'Product_subcategoryId_idx';
                   readonly columns: readonly ['subcategoryId'];
@@ -997,6 +1082,89 @@ type ContractBase = Omit<
                   readonly target: {
                     readonly namespaceId: 'public' & NamespaceId;
                     readonly tableName: 'Subcategory';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly ProductAddon: {
+              columns: {
+                readonly addonId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly id: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                };
+                readonly isActive: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                };
+                readonly productId: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                };
+                readonly sortOrder: {
+                  readonly nativeType: 'int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['productId', 'addonId'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'ProductAddon_addonId_idx_53f76155';
+                  readonly prefix: 'ProductAddon_addonId_idx';
+                  readonly columns: readonly ['addonId'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'ProductAddon_productId_idx_5858600a';
+                  readonly prefix: 'ProductAddon_productId_idx';
+                  readonly columns: readonly ['productId'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'ProductAddon';
+                    readonly columns: readonly ['productId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'Product';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'ProductAddon';
+                    readonly columns: readonly ['addonId'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'Addon';
                     readonly columns: readonly ['id'];
                   };
                 },
@@ -1091,7 +1259,7 @@ type ContractBase = Omit<
                 };
               };
               primaryKey: { readonly columns: readonly ['id'] };
-              uniques: readonly [];
+              uniques: readonly [{ readonly columns: readonly ['productId', 'name'] }];
               indexes: readonly [
                 {
                   readonly name: 'ProductFlavor_productId_idx_5858600a';
@@ -1197,6 +1365,12 @@ type ContractBase = Omit<
               ];
             };
           };
+          readonly valueSet: {
+            readonly ProductPricingType: {
+              readonly kind: 'valueSet';
+              readonly values: readonly ['FIXED', 'PIZZA_CUSTOM'];
+            };
+          };
         };
       };
     };
@@ -1214,6 +1388,10 @@ type ContractBase = Omit<
     };
     readonly Category: { readonly namespace: 'public' & NamespaceId; readonly model: 'Category' };
     readonly Product: { readonly namespace: 'public' & NamespaceId; readonly model: 'Product' };
+    readonly ProductAddon: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'ProductAddon';
+    };
     readonly ProductFlavor: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'ProductFlavor';
@@ -1273,6 +1451,17 @@ type ContractBase = Omit<
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
                   readonly model: 'AddonCategory';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['addonId'];
+                };
+              };
+              readonly products: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'ProductAddon';
                 };
                 readonly cardinality: '1:N';
                 readonly on: {
@@ -1445,6 +1634,10 @@ type ContractBase = Omit<
           };
           readonly Product: {
             readonly fields: {
+              readonly allowsAddons: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
               readonly allowsFlavors: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
@@ -1492,9 +1685,17 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly pizzaSlices: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly priceCents: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly pricingType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly slug: {
                 readonly nullable: false;
@@ -1517,6 +1718,17 @@ type ContractBase = Omit<
               };
             };
             readonly relations: {
+              readonly addons: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'ProductAddon';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['productId'];
+                };
+              };
               readonly category: {
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
@@ -1557,6 +1769,7 @@ type ContractBase = Omit<
               readonly table: 'Product';
               readonly namespaceId: 'public';
               readonly fields: {
+                readonly allowsAddons: { readonly column: 'allowsAddons' };
                 readonly allowsFlavors: { readonly column: 'allowsFlavors' };
                 readonly categoryId: { readonly column: 'categoryId' };
                 readonly createdAt: { readonly column: 'createdAt' };
@@ -1568,11 +1781,74 @@ type ContractBase = Omit<
                 readonly isFeatured: { readonly column: 'isFeatured' };
                 readonly maxFlavors: { readonly column: 'maxFlavors' };
                 readonly name: { readonly column: 'name' };
+                readonly pizzaSlices: { readonly column: 'pizzaSlices' };
                 readonly priceCents: { readonly column: 'priceCents' };
+                readonly pricingType: { readonly column: 'pricingType' };
                 readonly slug: { readonly column: 'slug' };
                 readonly sortOrder: { readonly column: 'sortOrder' };
                 readonly subcategoryId: { readonly column: 'subcategoryId' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
+              };
+            };
+          };
+          readonly ProductAddon: {
+            readonly fields: {
+              readonly addonId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly isActive: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly productId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly sortOrder: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+            };
+            readonly relations: {
+              readonly addon: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Addon';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['addonId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly product: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Product';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['productId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'ProductAddon';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly addonId: { readonly column: 'addonId' };
+                readonly id: { readonly column: 'id' };
+                readonly isActive: { readonly column: 'isActive' };
+                readonly productId: { readonly column: 'productId' };
+                readonly sortOrder: { readonly column: 'sortOrder' };
               };
             };
           };
@@ -1746,6 +2022,15 @@ type ContractBase = Omit<
                 readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };
+          };
+        };
+        readonly enum: {
+          readonly ProductPricingType: {
+            readonly codecId: 'pg/text@1';
+            readonly members: readonly [
+              { readonly name: 'FIXED'; readonly value: 'FIXED' },
+              { readonly name: 'PIZZA_CUSTOM'; readonly value: 'PIZZA_CUSTOM' },
+            ];
           };
         };
       };

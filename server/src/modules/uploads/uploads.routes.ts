@@ -5,9 +5,16 @@ import multer from "multer";
 import { requireAuth } from "../../middlewares/requireAuth.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 
-import { uploadProductImageController } from "./uploads.controller.js";
+import {
+  uploadAddonImageController,
+  uploadProductImageController,
+} from "./uploads.controller.js";
 
 export const uploadsRouter = Router();
+
+// ============================================
+// CONFIGURAÇÃO DO MULTER
+// ============================================
 
 const allowedMimeTypes = new Set([
   "image/jpeg",
@@ -25,7 +32,9 @@ const upload = multer({
 
   fileFilter: (_req, file, callback) => {
     if (!allowedMimeTypes.has(file.mimetype)) {
-      callback(new Error("Formato de imagem não permitido."));
+      callback(
+        new Error("Formato de imagem não permitido."),
+      );
       return;
     }
 
@@ -33,34 +42,60 @@ const upload = multer({
   },
 });
 
-uploadsRouter.post(
-  "/products",
-  requireAuth,
-  requireRole("ADMIN"),
-  (req, res, next) => {
-    upload.single("image")(req, res, (error: unknown) => {
-      if (error) {
-        if (
-          error instanceof multer.MulterError &&
-          error.code === "LIMIT_FILE_SIZE"
-        ) {
-          res.status(413).json({
-            message: "A imagem deve ter no máximo 5 MB.",
-          });
-          return;
-        }
+// ============================================
+// MIDDLEWARE DE UPLOAD
+// ============================================
 
-        res.status(400).json({
-          message:
-            error instanceof Error
-              ? error.message
-              : "Arquivo inválido.",
+const handleImageUpload: import("express").RequestHandler = (
+  req,
+  res,
+  next,
+) => {
+  upload.single("image")(req, res, (error: unknown) => {
+    if (error) {
+      if (
+        error instanceof multer.MulterError &&
+        error.code === "LIMIT_FILE_SIZE"
+      ) {
+        res.status(413).json({
+          message: "A imagem deve ter no máximo 5 MB.",
         });
         return;
       }
 
-      next();
-    });
-  },
+      res.status(400).json({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Arquivo inválido.",
+      });
+      return;
+    }
+
+    next();
+  });
+};
+
+// ============================================
+// UPLOAD DE PRODUTOS
+// ============================================
+
+uploadsRouter.post(
+  "/products",
+  requireAuth,
+  requireRole("ADMIN"),
+  handleImageUpload,
   uploadProductImageController,
+);
+
+// ============================================
+// UPLOAD DE ADICIONAIS
+// ============================================
+
+uploadsRouter.post(
+  "/addons",
+  requireAuth,
+  requireRole("ADMIN"),
+  handleImageUpload,
+  uploadAddonImageController,
 );

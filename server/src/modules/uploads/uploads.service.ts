@@ -11,8 +11,13 @@ export interface UploadedProductImage {
   sizeBytes: number;
 }
 
-export async function uploadProductImage(
+export type UploadedAddonImage = UploadedProductImage;
+
+type UploadFolder = "products" | "addons";
+
+async function uploadImage(
   buffer: Buffer,
+  folder: UploadFolder,
 ): Promise<UploadedProductImage> {
   const metadata = await sharp(buffer).metadata();
 
@@ -20,7 +25,9 @@ export async function uploadProductImage(
     !metadata.format ||
     !["jpeg", "png", "webp"].includes(metadata.format)
   ) {
-    throw new Error("Formato de imagem não permitido.");
+    throw new Error(
+      "Formato de imagem não permitido. Use JPG, PNG ou WebP.",
+    );
   }
 
   const optimizedBuffer = await sharp(buffer, {
@@ -33,10 +40,13 @@ export async function uploadProductImage(
       fit: "inside",
       withoutEnlargement: true,
     })
-    .webp({ quality: 82, effort: 4 })
+    .webp({
+      quality: 82,
+      effort: 4,
+    })
     .toBuffer();
 
-  const objectPath = `products/${randomUUID()}.webp`;
+  const objectPath = `${folder}/${randomUUID()}.webp`;
 
   const file = productsBucket.file(objectPath);
 
@@ -57,4 +67,24 @@ export async function uploadProductImage(
     contentType: "image/webp",
     sizeBytes: optimizedBuffer.length,
   };
+}
+
+// ============================================
+// UPLOAD DE PRODUTOS
+// ============================================
+
+export async function uploadProductImage(
+  buffer: Buffer,
+): Promise<UploadedProductImage> {
+  return uploadImage(buffer, "products");
+}
+
+// ============================================
+// UPLOAD DE ADICIONAIS
+// ============================================
+
+export async function uploadAddonImage(
+  buffer: Buffer,
+): Promise<UploadedAddonImage> {
+  return uploadImage(buffer, "addons");
 }

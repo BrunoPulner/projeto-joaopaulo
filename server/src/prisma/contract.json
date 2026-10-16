@@ -20,6 +20,10 @@
       "model": "Product",
       "namespace": "public"
     },
+    "ProductAddon": {
+      "model": "ProductAddon",
+      "namespace": "public"
+    },
     "ProductFlavor": {
       "model": "ProductFlavor",
       "namespace": "public"
@@ -32,6 +36,21 @@
   "domain": {
     "namespaces": {
       "public": {
+        "enum": {
+          "ProductPricingType": {
+            "codecId": "pg/text@1",
+            "members": [
+              {
+                "name": "FIXED",
+                "value": "FIXED"
+              },
+              {
+                "name": "PIZZA_CUSTOM",
+                "value": "PIZZA_CUSTOM"
+              }
+            ]
+          }
+        },
         "models": {
           "Addon": {
             "fields": {
@@ -105,6 +124,21 @@
                 },
                 "to": {
                   "model": "AddonCategory",
+                  "namespace": "public"
+                }
+              },
+              "products": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "addonId"
+                  ]
+                },
+                "to": {
+                  "model": "ProductAddon",
                   "namespace": "public"
                 }
               }
@@ -363,6 +397,13 @@
           },
           "Product": {
             "fields": {
+              "allowsAddons": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "allowsFlavors": {
                 "nullable": false,
                 "type": {
@@ -440,11 +481,31 @@
                   "kind": "scalar"
                 }
               },
+              "pizzaSlices": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "priceCents": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/int4@1",
                   "kind": "scalar"
+                }
+              },
+              "pricingType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                },
+                "valueSet": {
+                  "entityKind": "enum",
+                  "entityName": "ProductPricingType",
+                  "namespaceId": "public",
+                  "plane": "domain"
                 }
               },
               "slug": {
@@ -477,6 +538,21 @@
               }
             },
             "relations": {
+              "addons": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "productId"
+                  ]
+                },
+                "to": {
+                  "model": "ProductAddon",
+                  "namespace": "public"
+                }
+              },
               "category": {
                 "cardinality": "N:1",
                 "nullable": false,
@@ -527,6 +603,9 @@
             },
             "storage": {
               "fields": {
+                "allowsAddons": {
+                  "column": "allowsAddons"
+                },
                 "allowsFlavors": {
                   "column": "allowsFlavors"
                 },
@@ -560,8 +639,14 @@
                 "name": {
                   "column": "name"
                 },
+                "pizzaSlices": {
+                  "column": "pizzaSlices"
+                },
                 "priceCents": {
                   "column": "priceCents"
+                },
+                "pricingType": {
+                  "column": "pricingType"
                 },
                 "slug": {
                   "column": "slug"
@@ -578,6 +663,100 @@
               },
               "namespaceId": "public",
               "table": "Product"
+            }
+          },
+          "ProductAddon": {
+            "fields": {
+              "addonId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "isActive": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "productId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "sortOrder": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "addon": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "addonId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Addon",
+                  "namespace": "public"
+                }
+              },
+              "product": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "productId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Product",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "addonId": {
+                  "column": "addonId"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "isActive": {
+                  "column": "isActive"
+                },
+                "productId": {
+                  "column": "productId"
+                },
+                "sortOrder": {
+                  "column": "sortOrder"
+                }
+              },
+              "namespaceId": "public",
+              "table": "ProductAddon"
             }
           },
           "ProductFlavor": {
@@ -1092,7 +1271,23 @@
               ]
             },
             "Product": {
+              "checks": [
+                {
+                  "expression": "\"pricingType\" IN ('FIXED', 'PIZZA_CUSTOM')",
+                  "name": "Product_pricingType_check_a77f53f9",
+                  "prefix": "Product_pricingType_check"
+                }
+              ],
               "columns": {
+                "allowsAddons": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
                 "allowsFlavors": {
                   "codecId": "pg/bool@1",
                   "default": {
@@ -1176,6 +1371,11 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "pizzaSlices": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
                 "priceCents": {
                   "codecId": "pg/int4@1",
                   "default": {
@@ -1184,6 +1384,21 @@
                   },
                   "nativeType": "int4",
                   "nullable": false
+                },
+                "pricingType": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "FIXED"
+                  },
+                  "nativeType": "text",
+                  "nullable": false,
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "ProductPricingType",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
                 },
                 "slug": {
                   "codecId": "pg/text@1",
@@ -1255,6 +1470,14 @@
                 },
                 {
                   "columns": [
+                    "pricingType"
+                  ],
+                  "name": "Product_pricingType_idx_b9ac3cf1",
+                  "prefix": "Product_pricingType_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
                     "subcategoryId"
                   ],
                   "name": "Product_subcategoryId_idx_d4b355f2",
@@ -1271,6 +1494,112 @@
                 {
                   "columns": [
                     "slug"
+                  ]
+                }
+              ]
+            },
+            "ProductAddon": {
+              "columns": {
+                "addonId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "isActive": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "productId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "sortOrder": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "productId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "ProductAddon"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "Product"
+                  }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "addonId"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "ProductAddon"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "Addon"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "addonId"
+                  ],
+                  "name": "ProductAddon_addonId_idx_53f76155",
+                  "prefix": "ProductAddon_addonId_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "productId"
+                  ],
+                  "name": "ProductAddon_productId_idx_5858600a",
+                  "prefix": "ProductAddon_productId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "productId",
+                    "addonId"
                   ]
                 }
               ]
@@ -1399,7 +1728,14 @@
                   "id"
                 ]
               },
-              "uniques": []
+              "uniques": [
+                {
+                  "columns": [
+                    "productId",
+                    "name"
+                  ]
+                }
+              ]
             },
             "Subcategory": {
               "columns": {
@@ -1502,13 +1838,22 @@
                 }
               ]
             }
+          },
+          "valueSet": {
+            "ProductPricingType": {
+              "kind": "valueSet",
+              "values": [
+                "FIXED",
+                "PIZZA_CUSTOM"
+              ]
+            }
           }
         },
         "id": "public",
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "b6b9b9060086dd12d72b2e6a3d6688c6e8c43f17d099107931f92a17be037862"
+    "storageHash": "63851605e27f76fd6ef035b3adccbd529a33f7e7324c66f875eb5894bdd46035"
   },
   "execution": {
     "executionHash": "4ccebf974096d89a6f16f7beadce0d0a25c188a23f3499f8b4747d1a84499e9f",

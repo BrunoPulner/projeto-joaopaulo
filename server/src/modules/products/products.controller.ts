@@ -12,27 +12,104 @@ import {
   type ProductUpdateInput,
 } from "./product.service.js";
 
+// ============================================
+// SCHEMA DE VALIDAÇÃO
+// ============================================
+
 const productSchema = z.object({
   categoryId: z.number().int().positive(),
-  subcategoryId: z.number().int().positive().nullable().optional(),
+
+  subcategoryId: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .optional(),
+
   name: z.string().trim().min(2).max(100),
-  slug: z.string()
+
+  slug: z
+    .string()
     .trim()
     .toLowerCase()
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
     .optional(),
-  description: z.string().trim().max(2000).nullable().optional(),
-  imageUrl: z.string().trim().max(2048).nullable().optional(),
+
+  description: z
+    .string()
+    .trim()
+    .max(2000)
+    .nullable()
+    .optional(),
+
+  imageUrl: z
+    .string()
+    .trim()
+    .max(2048)
+    .nullable()
+    .optional(),
+
   priceCents: z.number().int().min(0),
+
+  // ==========================================
+  // CONTROLE DE ESTOQUE
+  // ==========================================
+
+  // Bebidas: número inteiro >= 0.
+  // Outros produtos: null ou campo omitido.
+  //
+  // A obrigatoriedade para bebidas é
+  // verificada no product.service.ts,
+  // pois depende da categoria cadastrada.
+  stockQuantity: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .optional(),
+
+  // ==========================================
+  // CONTROLE ADMINISTRATIVO
+  // ==========================================
+
   isActive: z.boolean().optional(),
   isAvailable: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
+
   sortOrder: z.number().int().min(0).optional(),
+
+  // ==========================================
+  // CONFIGURAÇÕES DE PRODUTOS
+  // ==========================================
+
   allowsFlavors: z.boolean().optional(),
-  maxFlavors: z.number().int().min(1).max(2).optional(),
+
+  maxFlavors: z
+    .number()
+    .int()
+    .min(1)
+    .max(2)
+    .optional(),
+
+  pricingType: z
+    .enum(["FIXED", "PIZZA_CUSTOM"])
+    .optional(),
+
+  pizzaSlices: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .optional(),
+
+  allowsAddons: z.boolean().optional(),
 });
 
 const updateSchema = productSchema.partial();
+
+// ============================================
+// FUNÇÕES AUXILIARES
+// ============================================
 
 function generateSlug(name: string): string {
   return name
@@ -44,16 +121,26 @@ function generateSlug(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function parseId(value: string | string[] | undefined) {
-  if (typeof value !== "string" || !/^[1-9]\d*$/.test(value)) {
+function parseId(
+  value: string | string[] | undefined,
+): number | null {
+  if (
+    typeof value !== "string" ||
+    !/^[1-9]\d*$/.test(value)
+  ) {
     return null;
   }
 
   const id = Number(value);
+
   return Number.isSafeInteger(id) && id <= 2147483647
     ? id
     : null;
 }
+
+// ============================================
+// TRATAMENTO DE ERROS
+// ============================================
 
 function handleError(error: unknown) {
   const dbError = error as {
@@ -61,17 +148,57 @@ function handleError(error: unknown) {
     constraint?: string;
   };
 
+  // Slug duplicado
   if (dbError.code === "23505") {
     return {
       status: 409,
-      message: "Já existe um produto com esse identificador (slug).",
+      message:
+        "Já existe um produto com esse identificador (slug).",
     };
   }
 
+  // Chave estrangeira inválida
   if (dbError.code === "23503") {
     return {
       status: 400,
-      message: "Categoria ou subcategoria inválida.",
+      message:
+        "Categoria ou subcategoria inválida.",
+    };
+  }
+
+  // Restrição de estoque do PostgreSQL
+  if (
+    dbError.code === "23514" &&
+    dbError.constraint === "Product_stockQuantity_check"
+  ) {
+    return {
+      status: 400,
+      message:
+        "A quantidade em estoque não pode ser negativa.",
+    };
+  }
+
+  // Validação de estoque no serviço
+  if (
+    error instanceof Error &&
+    error.message ===
+      "Informe uma quantidade de estoque válida para a bebida."
+  ) {
+    return {
+      status: 400,
+      message: error.message,
+    };
+  }
+
+  // Categoria inexistente ou desativada
+  if (
+    error instanceof Error &&
+    error.message ===
+      "Categoria inexistente ou desativada."
+  ) {
+    return {
+      status: 400,
+      message: error.message,
     };
   }
 
@@ -83,31 +210,56 @@ function handleError(error: unknown) {
   };
 }
 
-export const listProducts: RequestHandler = async (_req, res) => {
+// ============================================
+// LISTAGEM PÚBLICA
+// ============================================
+
+export const listProducts: RequestHandler = async (
+  _req,
+  res,
+) => {
   try {
     const products = await findAllProducts(false);
 
-    // No catálogo público, não exibir produtos de
-    // categorias ou subcategorias desativadas.
-    // O filtro por relações será refinado na etapa do catálogo.
     res.status(200).json(products);
   } catch (error) {
     const result = handleError(error);
-    res.status(result.status).json({ message: result.message });
+
+    res.status(result.status).json({
+      message: result.message,
+    });
   }
 };
 
-export const listAdminProducts: RequestHandler = async (_req, res) => {
+// ============================================
+// LISTAGEM ADMINISTRATIVA
+// ============================================
+
+export const listAdminProducts: RequestHandler = async (
+  _req,
+  res,
+) => {
   try {
     const products = await findAllProducts(true);
+
     res.status(200).json(products);
   } catch (error) {
     const result = handleError(error);
-    res.status(result.status).json({ message: result.message });
+
+    res.status(result.status).json({
+      message: result.message,
+    });
   }
 };
 
-export const createProduct: RequestHandler = async (req, res) => {
+// ============================================
+// CADASTRAR PRODUTO
+// ============================================
+
+export const createProduct: RequestHandler = async (
+  req,
+  res,
+) => {
   const parsed = productSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -118,21 +270,28 @@ export const createProduct: RequestHandler = async (req, res) => {
     return;
   }
 
-  const slug = parsed.data.slug ?? generateSlug(parsed.data.name);
+  const slug =
+    parsed.data.slug ??
+    generateSlug(parsed.data.name);
 
   if (!slug) {
-    res.status(400).json({ message: "Slug inválido." });
+    res.status(400).json({
+      message: "Slug inválido.",
+    });
     return;
   }
 
   try {
-    const relationError = await validateProductRelations(
-      parsed.data.categoryId,
-      parsed.data.subcategoryId,
-    );
+    const relationError =
+      await validateProductRelations(
+        parsed.data.categoryId,
+        parsed.data.subcategoryId,
+      );
 
     if (relationError) {
-      res.status(400).json({ message: relationError });
+      res.status(400).json({
+        message: relationError,
+      });
       return;
     }
 
@@ -144,15 +303,27 @@ export const createProduct: RequestHandler = async (req, res) => {
     res.status(201).json(product);
   } catch (error) {
     const result = handleError(error);
-    res.status(result.status).json({ message: result.message });
+
+    res.status(result.status).json({
+      message: result.message,
+    });
   }
 };
 
-export const updateProduct: RequestHandler = async (req, res) => {
+// ============================================
+// ATUALIZAR PRODUTO
+// ============================================
+
+export const updateProduct: RequestHandler = async (
+  req,
+  res,
+) => {
   const id = parseId(req.params.id);
 
   if (id === null) {
-    res.status(400).json({ message: "ID inválido." });
+    res.status(400).json({
+      message: "ID inválido.",
+    });
     return;
   }
 
@@ -168,7 +339,8 @@ export const updateProduct: RequestHandler = async (req, res) => {
 
   if (Object.keys(parsed.data).length === 0) {
     res.status(400).json({
-      message: "Informe pelo menos um campo para atualizar.",
+      message:
+        "Informe pelo menos um campo para atualizar.",
     });
     return;
   }
@@ -177,7 +349,9 @@ export const updateProduct: RequestHandler = async (req, res) => {
     const current = await findProductById(id);
 
     if (!current) {
-      res.status(404).json({ message: "Produto não encontrado." });
+      res.status(404).json({
+        message: "Produto não encontrado.",
+      });
       return;
     }
 
@@ -185,40 +359,63 @@ export const updateProduct: RequestHandler = async (req, res) => {
       ...parsed.data,
     };
 
-    if (input.name && input.slug === undefined) {
+    if (
+      input.name &&
+      input.slug === undefined
+    ) {
       input.slug = generateSlug(input.name);
     }
 
-    const categoryId = input.categoryId ?? current.categoryId;
+    const categoryId =
+      input.categoryId ?? current.categoryId;
+
     const subcategoryId =
       input.subcategoryId !== undefined
         ? input.subcategoryId
         : current.subcategoryId;
 
-    const relationError = await validateProductRelations(
-      categoryId,
-      subcategoryId,
-    );
+    const relationError =
+      await validateProductRelations(
+        categoryId,
+        subcategoryId,
+      );
 
     if (relationError) {
-      res.status(400).json({ message: relationError });
+      res.status(400).json({
+        message: relationError,
+      });
       return;
     }
 
-    const product = await editProduct(id, input);
+    const product = await editProduct(
+      id,
+      input,
+    );
 
     res.status(200).json(product);
   } catch (error) {
     const result = handleError(error);
-    res.status(result.status).json({ message: result.message });
+
+    res.status(result.status).json({
+      message: result.message,
+    });
   }
 };
 
-export const deactivateProduct: RequestHandler = async (req, res) => {
+// ============================================
+// DESATIVAR PRODUTO
+// ============================================
+
+export const deactivateProduct: RequestHandler = async (
+  req,
+  res,
+) => {
   const id = parseId(req.params.id);
 
   if (id === null) {
-    res.status(400).json({ message: "ID inválido." });
+    res.status(400).json({
+      message: "ID inválido.",
+    });
     return;
   }
 
@@ -226,7 +423,9 @@ export const deactivateProduct: RequestHandler = async (req, res) => {
     const product = await disableProduct(id);
 
     if (!product) {
-      res.status(404).json({ message: "Produto não encontrado." });
+      res.status(404).json({
+        message: "Produto não encontrado.",
+      });
       return;
     }
 
@@ -236,6 +435,9 @@ export const deactivateProduct: RequestHandler = async (req, res) => {
     });
   } catch (error) {
     const result = handleError(error);
-    res.status(result.status).json({ message: result.message });
+
+    res.status(result.status).json({
+      message: result.message,
+    });
   }
 };
