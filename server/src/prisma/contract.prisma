@@ -329,16 +329,17 @@ model Addon {
 // ADICIONAIS PERMITIDOS POR CATEGORIA
 // ============================================
 
+
 model AddonCategory {
   id Int @id @default(autoincrement())
 
-  addonId    Int
+  // Adicional cadastrado globalmente
+  addonId Int
+
+  // Categoria que receberá o adicional
   categoryId Int
 
-  // ==========================================
   // RELAÇÕES
-  // ==========================================
-
   addon Addon @relation(
     fields: [addonId],
     references: [id]
@@ -349,12 +350,20 @@ model AddonCategory {
     references: [id]
   )
 
-  // Evita vincular o mesmo adicional
-  // mais de uma vez à mesma categoria
+  // CONTROLE ADMINISTRATIVO
+  // Permite desativar o vínculo sem excluir o registro.
+  isActive Boolean @default(true)
+
+  // Ordem de exibição
+  sortOrder Int @default(0)
+
+  // Um adicional só pode estar vinculado
+  // uma vez à mesma categoria.
   @@unique([addonId, categoryId])
 
   @@index([categoryId])
 }
+
 
 
 // ============================================

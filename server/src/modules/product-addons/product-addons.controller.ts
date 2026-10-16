@@ -6,6 +6,7 @@ import {
   ProductAddonValidationError,
   disableProductAddon,
   editProductAddon,
+  findEffectiveProductAddons,
   findProductAddonById,
   findProductAddons,
   insertProductAddon,
@@ -144,10 +145,7 @@ export const listProductAddons: RequestHandler = async (
   }
 
   try {
-    const addons = await findProductAddons(
-      productId,
-      false,
-    );
+    const addons = await findEffectiveProductAddons(productId);
 
     res.status(200).json(addons);
   } catch (error) {
@@ -158,6 +156,10 @@ export const listProductAddons: RequestHandler = async (
     });
   }
 };
+
+
+
+
 
 // ============================================
 // LISTAR ADICIONAIS DO PRODUTO NO ADMIN

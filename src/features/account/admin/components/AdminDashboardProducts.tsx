@@ -43,14 +43,28 @@ function isBeverageCategory(category: AdminCategory): boolean {
     .toLowerCase();
   return normalized === "bebida" || normalized === "bebidas";
 }
+
 function allowsAddonsForCategory(category: AdminCategory): boolean {
   const normalized = (category.slug || category.name)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase();
-  return ["lanche", "lanches", "pastel", "pasteis", "crepe", "crepes"].includes(normalized);
+
+  const categoriesWithAddons = [
+    "pastel",
+    "pasteis",
+    "crepe",
+    "crepes",
+    "espetinho",
+    "espetinhos",
+    "bebida",
+    "bebidas",
+  ];
+
+  return categoriesWithAddons.includes(normalized);
 }
+
 export function AdminDashboardProducts() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [categories, setCategories] = useState<AdminCategory[]>([]);

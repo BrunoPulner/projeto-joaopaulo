@@ -13,6 +13,17 @@ import {
 import { requireAuth } from "../../middlewares/requireAuth.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 
+import {
+  getAddonSubcategories,
+  saveAddonSubcategories,
+} from "./addon-subcategory.controller.js";
+
+import {
+  getAddonCategories,
+  putAddonCategories,
+} from "./addon-category.controller.js";
+import { putAddonLinks } from "./addon-links.controller.js";
+
 // ============================================
 // ROUTER DE ADICIONAIS
 // ============================================
@@ -23,17 +34,16 @@ export const addonsRouter = Router();
 // ROTAS PÚBLICAS
 // ============================================
 
-// Listar adicionais ativos
 // GET /api/addons
+// Listar adicionais ativos
 addonsRouter.get("/", listAddons);
 
 // ============================================
 // ROTAS ADMINISTRATIVAS
 // ============================================
 
-// Listar todos os adicionais,
-// incluindo os desativados
 // GET /api/addons/admin
+// Listar todos os adicionais, incluindo inativos
 addonsRouter.get(
   "/admin",
   requireAuth,
@@ -42,10 +52,53 @@ addonsRouter.get(
 );
 
 // ============================================
-// CONSULTAR ADICIONAL
+// VÍNCULOS POR CATEGORIA INTEIRA
 // ============================================
 
-// Buscar adicional ativo por ID
+// GET /api/addons/admin/:id/categories
+// Consultar categorias vinculadas ao adicional
+addonsRouter.get(
+  "/admin/:id/categories",
+  requireAuth,
+  requireRole("ADMIN"),
+  getAddonCategories,
+);
+
+// PUT /api/addons/admin/:id/categories
+// Salvar categorias vinculadas ao adicional
+addonsRouter.put(
+  "/admin/:id/categories",
+  requireAuth,
+  requireRole("ADMIN"),
+  putAddonCategories,
+);
+
+// ============================================
+// VÍNCULOS POR SUBCATEGORIA
+// ============================================
+
+// GET /api/addons/admin/:id/subcategories
+// Consultar subcategorias vinculadas
+addonsRouter.get(
+  "/admin/:id/subcategories",
+  requireAuth,
+  requireRole("ADMIN"),
+  getAddonSubcategories,
+);
+
+// PUT /api/addons/admin/:id/subcategories
+// Salvar subcategorias vinculadas
+addonsRouter.put(
+  "/admin/:id/subcategories",
+  requireAuth,
+  requireRole("ADMIN"),
+  saveAddonSubcategories,
+);
+
+// ============================================
+// CONSULTAR ADICIONAL POR ID
+// ============================================
+
 // GET /api/addons/:id
 addonsRouter.get("/:id", getAddonById);
 
@@ -84,4 +137,18 @@ addonsRouter.delete(
   requireAuth,
   requireRole("ADMIN"),
   deactivateAddon,
+);
+
+
+// ============================================
+// VÍNCULOS UNIFICADOS
+// ============================================
+
+// PUT /api/addons/admin/:id/links
+// Salvar categorias e subcategorias em uma transação
+addonsRouter.put(
+  "/admin/:id/links",
+  requireAuth,
+  requireRole("ADMIN"),
+  putAddonLinks,
 );

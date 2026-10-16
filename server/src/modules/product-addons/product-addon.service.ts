@@ -92,6 +92,122 @@ export async function findProductAddons(
 }
 
 // ============================================
+// ADICIONAIS EFETIVOS DO PRODUTO
+// Herança da subcategoria + restrições individuais
+// ============================================
+
+
+export async function findEffectiveProductAddons(
+  productId: number,
+): Promise<ProductAddon[]> {
+  const result = await pool.query<ProductAddon>(
+    `
+      WITH product_context AS (
+        SELECT
+          p.id AS "productId",
+          p."categoryId",
+          p."subcategoryId"
+        FROM public."Product" p
+        INNER JOIN public."Category" c
+          ON c.id = p."categoryId"
+        WHERE p.id = $1
+          AND p."isActive" = true
+          AND p."isAvailable" = true
+          AND p."allowsAddons" = true
+          AND c."isActive" = true
+          AND LOWER(c.slug) NOT IN (
+            'pizza',
+            'pizzas',
+            'lanche',
+            'lanches'
+          )
+      ),
+
+      inherited_addons AS (
+        -- Adicionais vinculados à categoria inteira
+        SELECT
+          ac."addonId",
+          ac."sortOrder"
+        FROM product_context pc
+        INNER JOIN public."AddonCategory" ac
+          ON ac."categoryId" = pc."categoryId"
+          AND ac."isActive" = true
+
+        UNION ALL
+
+        -- Adicionais vinculados à subcategoria
+        SELECT
+          ads."addonId",
+          ads."sortOrder"
+        FROM product_context pc
+        INNER JOIN public."AddonSubcategory" ads
+          ON ads."subcategoryId" = pc."subcategoryId"
+          AND ads."isActive" = true
+        INNER JOIN public."Subcategory" s
+          ON s.id = ads."subcategoryId"
+          AND s."categoryId" = pc."categoryId"
+          AND s."isActive" = true
+      ),
+
+      deduplicated_addons AS (
+        -- Um único registro por adicional
+        SELECT
+          "addonId",
+          MIN("sortOrder") AS "sortOrder"
+        FROM inherited_addons
+        GROUP BY "addonId"
+      )
+
+      SELECT
+        COALESCE(pa.id, 0) AS id,
+        pc."productId",
+        a.id AS "addonId",
+
+        COALESCE(pa."isActive", true) AS "isActive",
+
+        COALESCE(
+          pa."sortOrder",
+          da."sortOrder",
+          0
+        ) AS "sortOrder",
+
+        a.name AS "addonName",
+        a.description AS "addonDescription",
+        a."imageUrl" AS "addonImageUrl",
+        a."priceCents" AS "addonPriceCents",
+        a."isActive" AS "addonIsActive"
+
+      FROM product_context pc
+
+      INNER JOIN deduplicated_addons da
+        ON true
+
+      INNER JOIN public."Addon" a
+        ON a.id = da."addonId"
+        AND a."isActive" = true
+
+      LEFT JOIN public."ProductAddon" pa
+        ON pa."productId" = pc."productId"
+        AND pa."addonId" = a.id
+
+      WHERE COALESCE(pa."isActive", true) = true
+
+      ORDER BY
+        COALESCE(
+          pa."sortOrder",
+          da."sortOrder",
+          0
+        ) ASC,
+        a.name ASC
+    `,
+    [productId],
+  );
+
+  return result.rows;
+}
+
+
+// ============================================
 // BUSCAR VÍNCULO POR ID
 // ============================================
 
@@ -165,16 +281,16 @@ export async function validateProductAddon(
 
   const categorySlug = product.categorySlug.toLowerCase();
 
-  if (
-    categorySlug === "espetinhos" ||
-    categorySlug === "espetinho" ||
-    categorySlug === "bebidas" ||
-    categorySlug === "bebida"
-  ) {
-    throw new ProductAddonValidationError(
-      "Esta categoria não permite adicionais.",
-    );
-  }
+// Lanches ficam fora desta etapa de configuração.
+// As demais categorias dependem de allowsAddons.
+if (
+  categorySlug === "lanches" ||
+  categorySlug === "lanche"
+) {
+  throw new ProductAddonValidationError(
+    "Os adicionais para lanches ainda não estão habilitados.",
+  );
+}
 
   if (!product.allowsAddons) {
     throw new ProductAddonValidationError(
