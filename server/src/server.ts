@@ -5,12 +5,28 @@ import express from "express";
 import cors from "cors";
 import { toNodeHandler } from "better-auth/node";
 
+// ============================================
+// AUTENTICAÇÃO
+// ============================================
+
 import { auth } from "./lib/auth.js";
+
+// ============================================
+// CATEGORIAS E SUBCATEGORIAS
+// ============================================
 
 import { categoriesRouter } from "./modules/categories/categories.routes.js";
 import { subcategoriesRouter } from "./modules/subcategories/subcategories.routes.js";
 
+// ============================================
+// PRODUTOS
+// ============================================
+
 import { productsRouter } from "./modules/products/product.routes.js";
+
+// ============================================
+// ADICIONAIS
+// ============================================
 
 import { addonsRouter } from "./modules/addons/addon.routes.js";
 
@@ -19,13 +35,32 @@ import {
   productAddonsPublicRouter,
 } from "./modules/product-addons/product-addon.routes.js";
 
+// ============================================
+// PIZZAS
+// ============================================
+
+// Modelo anterior: sabores por produto
 import { pizzaFlavorsRouter } from "./modules/pizza-flavors/pizza-flavors.routes.js";
+
+// Modelo atual: tamanhos
+import { pizzaSizesRouter } from "./modules/pizza-sizes/pizza-sizes.routes.js";
+
+// Modelo atual: catálogo compartilhado de sabores
+import { pizzaCatalogFlavorsRouter } from "./modules/pizza-catalog-flavors/pizza-catalog-flavors.routes.js";
+
+// Modelo atual: adicionais de pizza
+import { pizzaAddonsRouter } from "./modules/pizza-addons/pizza-addons.routes.js";
+
+// ============================================
+// UPLOADS E IMAGENS
+// ============================================
 
 import { uploadsRouter } from "./modules/uploads/uploads.routes.js";
 import { productImagesRouter } from "./modules/uploads/productImages.routes.js";
-import { pizzaSizesRouter } from "./modules/pizza-sizes/pizza-sizes.routes.js";
-import { pizzaCatalogFlavorsRouter } from "./modules/pizza-catalog-flavors/pizza-catalog-flavors.routes.js";
-import { pizzaAddonsRouter } from "./modules/pizza-addons/pizza-addons.routes.js";
+
+// ============================================
+// INICIALIZAÇÃO
+// ============================================
 
 const app = express();
 
@@ -37,7 +72,7 @@ const allowedOrigins = [
 ];
 
 // ============================================
-// 1. CONFIGURAÇÃO DO CORS
+// 1. CORS
 // ============================================
 
 app.use(
@@ -51,17 +86,17 @@ app.use(
 // 2. AUTENTICAÇÃO BETTER AUTH
 // ============================================
 
-// Registrar antes de express.json()
+// Deve permanecer antes de express.json()
 app.all("/api/auth/*splat", toNodeHandler(auth));
 
 // ============================================
-// 3. CONFIGURAÇÃO JSON
+// 3. JSON
 // ============================================
 
 app.use(express.json());
 
 // ============================================
-// 4. VERIFICAÇÃO DA API
+// 4. HEALTH CHECK
 // ============================================
 
 app.get("/health", (_request, response) => {
@@ -80,60 +115,45 @@ app.use("/api/categories", categoriesRouter);
 app.use("/api/subcategories", subcategoriesRouter);
 
 // ============================================
-// 6. ADICIONAIS
+// 6. PRODUTOS
 // ============================================
 
-// Cadastro e gerenciamento de adicionais
+// Listagem pública e gerenciamento administrativo
+app.use("/api/products", productsRouter);
+
+// ============================================
+// 7. ADICIONAIS
+// ============================================
+
+// Cadastro e gerenciamento
 app.use("/api/addons", addonsRouter);
 
-// Adicionais vinculados aos produtos
+// Adicionais disponíveis por produto
 app.use("/api/products", productAddonsPublicRouter);
 
-// Administração dos vínculos de adicionais
+// Gerenciamento dos vínculos
 app.use(
   "/api/admin/product-addons",
   productAddonsAdminRouter,
 );
 
 // ============================================
-// 7. PRODUTOS
+// 8. PIZZAS
 // ============================================
 
-app.use("/api/products", productsRouter);
-
-// ============================================
-// 8. SABORES DE PIZZA
-// ============================================
-
-// Tamanhos de pizza
-app.use("/api/pizza-sizes", pizzaSizesRouter);
-
-// Sabores de pizza (módulo anterior)
-app.use("/api/pizza-flavors", pizzaFlavorsRouter);
-
-// Tamanhos de pizza
-app.use("/api/pizza-sizes", pizzaSizesRouter);
-
-// Novo catálogo compartilhado de sabores
-app.use("/api/pizza-catalog-flavors", pizzaCatalogFlavorsRouter);
-
-// Sabores antigos vinculados a produtos (compatibilidade)
-app.use("/api/pizza-flavors", pizzaFlavorsRouter);
-
-// Cadastro, edição, listagem e desativação
-// de sabores, além de vínculos de adicionais.
-app.use("/api/pizza-flavors", pizzaFlavorsRouter);
-
-// Tamanhos de pizza
+// Tamanhos cadastrados
 app.use("/api/pizza-sizes", pizzaSizesRouter);
 
 // Catálogo compartilhado de sabores
-app.use("/api/pizza-catalog-flavors", pizzaCatalogFlavorsRouter);
+app.use(
+  "/api/pizza-catalog-flavors",
+  pizzaCatalogFlavorsRouter,
+);
 
-// Adicionais específicos das pizzas
+// Adicionais de pizzas
 app.use("/api/pizza-addons", pizzaAddonsRouter);
 
-// API antiga de sabores, mantida por compatibilidade
+// Modelo anterior, mantido para compatibilidade
 app.use("/api/pizza-flavors", pizzaFlavorsRouter);
 
 // ============================================
