@@ -1,3 +1,4 @@
+
 import {
   ImageOff,
   Minus,
@@ -5,36 +6,86 @@ import {
   ShoppingBag,
   X,
 } from "lucide-react";
+
 import { useEffect, useState } from "react";
 
 import type { Product } from "../catalogData";
+import type { CatalogProduct } from "../types/catalog.types";
 
-type ProductDetailsModalProps = {
-  product: Product | null;
+import { resolveCatalogImageUrl } from "../api/catalog.api";
+
+// ============================================
+// TIPOS
+// ============================================
+
+type ModalProduct = Product | CatalogProduct;
+
+type ProductDetailsModalProps<T extends ModalProduct> = {
+  product: T | null;
   onClose: () => void;
   onAdd: (
-    product: Product,
+    product: T,
     quantity: number,
     notes: string,
   ) => void;
 };
+
+// ============================================
+// UTILITÁRIOS
+// ============================================
 
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
 
-export function ProductDetailsModal({
+function isCatalogProduct(
+  product: ModalProduct,
+): product is CatalogProduct {
+  return "priceCents" in product;
+}
+
+function getProductPrice(product: ModalProduct) {
+  return isCatalogProduct(product)
+    ? product.priceCents / 100
+    : product.price;
+}
+
+function getProductImage(product: ModalProduct) {
+  if (isCatalogProduct(product)) {
+    return resolveCatalogImageUrl(product.imageUrl);
+  }
+
+  return product.image ?? null;
+}
+
+function getProductStock(product: ModalProduct) {
+  if (!isCatalogProduct(product)) {
+    return null;
+  }
+
+  return product.stockQuantity;
+}
+
+// ============================================
+// COMPONENTE
+// ============================================
+
+export function ProductDetailsModal<T extends ModalProduct>({
   product,
   onClose,
   onAdd,
-}: ProductDetailsModalProps) {
+}: ProductDetailsModalProps<T>) {
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState("");
-  const [imageFailed, setImageFailed] =
-    useState(false);
-  const [isClosing, setIsClosing] =
-    useState(false);
+  const [failedImage, setFailedImage] = useState<
+    string | null
+  >(null);
+  const [isClosing, setIsClosing] = useState(false);
+
+  // ==========================================
+  // BLOQUEIO DE SCROLL E ESCAPE
+  // ==========================================
 
   useEffect(() => {
     if (!product) return;
@@ -44,9 +95,7 @@ export function ProductDetailsModal({
 
     document.body.style.overflow = "hidden";
 
-    function handleKeyDown(
-      event: KeyboardEvent,
-    ) {
+    function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setIsClosing(true);
       }
@@ -72,10 +121,35 @@ export function ProductDetailsModal({
     return null;
   }
 
-  const total = product.price * quantity;
+  // ==========================================
+  // DADOS DO PRODUTO
+  // ==========================================
+
+  const price = getProductPrice(product);
+  const total = price * quantity;
+
+  const imageUrl = getProductImage(product);
 
   const showImage =
-    Boolean(product.image) && !imageFailed;
+    Boolean(imageUrl) && failedImage !== imageUrl;
+
+  const stock = getProductStock(product);
+
+  const hasStockLimit = stock !== null;
+
+  const outOfStock =
+    hasStockLimit && stock <= 0;
+
+  const maxQuantity =
+    hasStockLimit ? Math.max(0, stock) : null;
+
+  const reachedStockLimit =
+    maxQuantity !== null &&
+    quantity >= maxQuantity;
+
+  // ==========================================
+  // AÇÕES
+  // ==========================================
 
   function handleClose() {
     if (isClosing) return;
@@ -90,11 +164,27 @@ export function ProductDetailsModal({
   }
 
   function increaseQuantity() {
-    setQuantity((current) => current + 1);
+    setQuantity((current) => {
+      if (maxQuantity !== null) {
+        return Math.min(
+          maxQuantity,
+          current + 1,
+        );
+      }
+
+      return current + 1;
+    });
   }
 
   function handleAdd() {
-    if (!product || isClosing) return;
+    if (
+      !product ||
+      isClosing ||
+      outOfStock ||
+      reachedStockLimit && quantity > (maxQuantity ?? Infinity)
+    ) {
+      return;
+    }
 
     onAdd(
       product,
@@ -102,6 +192,10 @@ export function ProductDetailsModal({
       notes.trim(),
     );
   }
+
+  // ==========================================
+  // RENDERIZAÇÃO
+  // ==========================================
 
   return (
     <div
@@ -130,8 +224,7 @@ export function ProductDetailsModal({
       role="presentation"
       onMouseDown={(event) => {
         if (
-          event.target ===
-          event.currentTarget
+          event.target === event.currentTarget
         ) {
           handleClose();
         }
@@ -143,8 +236,7 @@ export function ProductDetailsModal({
         aria-labelledby="product-details-title"
         onAnimationEnd={(event) => {
           if (
-            event.target !==
-            event.currentTarget
+            event.target !== event.currentTarget
           ) {
             return;
           }
@@ -181,9 +273,7 @@ export function ProductDetailsModal({
           lg:flex-row
         `}
       >
-        {/* =====================================
-            ALÇA MOBILE
-            ===================================== */}
+        {/* ALÇA MOBILE */}
 
         <div
           className="
@@ -192,7 +282,6 @@ export function ProductDetailsModal({
             top-2
             z-30
             -translate-x-1/2
-
             sm:hidden
           "
           aria-hidden="true"
@@ -202,7 +291,7 @@ export function ProductDetailsModal({
 
         {/* =====================================
             IMAGEM
-            ===================================== */}
+        ===================================== */}
 
         <div
           className="
@@ -218,10 +307,10 @@ export function ProductDetailsModal({
             lg:w-[44%]
           "
         >
-          {showImage ? (
+          {showImage && imageUrl ? (
             <>
               <img
-                src={product.image}
+                src={imageUrl}
                 alt={product.name}
                 className="
                   absolute
@@ -231,7 +320,7 @@ export function ProductDetailsModal({
                   object-cover
                 "
                 onError={() =>
-                  setImageFailed(true)
+                  setFailedImage(imageUrl)
                 }
               />
 
@@ -239,7 +328,6 @@ export function ProductDetailsModal({
                 className="
                   absolute
                   inset-0
-
                   bg-linear-to-t
                   from-black/35
                   via-black/5
@@ -258,7 +346,6 @@ export function ProductDetailsModal({
               className="
                 absolute
                 inset-0
-
                 flex
                 flex-col
                 items-center
@@ -300,7 +387,7 @@ export function ProductDetailsModal({
             </div>
           )}
 
-          {/* Marca sobre a imagem - desktop */}
+          {/* MARCA SOBRE A IMAGEM */}
 
           <div
             className="
@@ -308,7 +395,6 @@ export function ProductDetailsModal({
               bottom-7
               left-7
               hidden
-
               lg:block
             "
           >
@@ -342,7 +428,7 @@ export function ProductDetailsModal({
 
         {/* =====================================
             BOTÃO FECHAR
-            ===================================== */}
+        ===================================== */}
 
         <button
           type="button"
@@ -392,15 +478,12 @@ export function ProductDetailsModal({
             lg:top-5
           "
         >
-          <X
-            size={19}
-            aria-hidden="true"
-          />
+          <X size={19} aria-hidden="true" />
         </button>
 
         {/* =====================================
             CONTEÚDO
-            ===================================== */}
+        ===================================== */}
 
         <div
           className="
@@ -408,7 +491,6 @@ export function ProductDetailsModal({
             flex-1
             overflow-y-auto
             overscroll-contain
-
             lg:overflow-hidden
           "
         >
@@ -428,9 +510,7 @@ export function ProductDetailsModal({
               lg:pr-9
             "
           >
-            {/* =================================
-                IDENTIFICAÇÃO
-                ================================= */}
+            {/* IDENTIFICAÇÃO */}
 
             <div className="pr-9 lg:pr-8">
               <span
@@ -440,7 +520,6 @@ export function ProductDetailsModal({
                   uppercase
                   tracking-[0.18em]
                   text-orange-700
-
                   sm:text-xs
                 "
               >
@@ -467,7 +546,6 @@ export function ProductDetailsModal({
                     text-stone-950
 
                     sm:text-2xl
-
                     lg:text-3xl
                   "
                 >
@@ -482,13 +560,10 @@ export function ProductDetailsModal({
                     text-orange-700
 
                     sm:text-xl
-
                     lg:text-2xl
                   "
                 >
-                  {currency.format(
-                    product.price,
-                  )}
+                  {currency.format(price)}
                 </span>
               </div>
 
@@ -499,7 +574,6 @@ export function ProductDetailsModal({
                     text-sm
                     leading-5
                     text-stone-600
-
                     sm:leading-6
                   "
                 >
@@ -508,24 +582,23 @@ export function ProductDetailsModal({
               )}
             </div>
 
-            {/* =================================
+            {/* =====================================
                 INGREDIENTES
-                ================================= */}
+                Disponíveis apenas no modelo antigo
+            ===================================== */}
 
-            {product.ingredients &&
+            {!isCatalogProduct(product) &&
+              product.ingredients &&
               product.ingredients.length > 0 && (
                 <div
                   className="
                     mt-4
-
                     rounded-xl
                     border
                     border-orange-100
                     bg-orange-50/60
-
                     px-4
                     py-3
-
                     lg:mt-5
                   "
                 >
@@ -543,10 +616,8 @@ export function ProductDetailsModal({
                             border
                             border-orange-100
                             bg-white
-
                             px-2.5
                             py-1
-
                             text-[11px]
                             font-semibold
                             text-stone-600
@@ -560,24 +631,20 @@ export function ProductDetailsModal({
                 </div>
               )}
 
-            {/* =================================
+            {/* =====================================
                 QUANTIDADE
-                ================================= */}
+            ===================================== */}
 
             <div
               className="
                 mt-4
-
                 flex
                 items-center
                 justify-between
                 gap-4
-
                 border-t
                 border-stone-100
-
                 pt-4
-
                 lg:mt-5
                 lg:pt-5
               "
@@ -590,6 +657,14 @@ export function ProductDetailsModal({
                 <p className="mt-0.5 text-xs text-stone-500">
                   Escolha quantas unidades deseja.
                 </p>
+
+                {hasStockLimit && (
+                  <p className="mt-1 text-xs font-semibold text-orange-700">
+                    {outOfStock
+                      ? "Produto esgotado"
+                      : `${stock} unidade(s) disponível(is)`}
+                  </p>
+                )}
               </div>
 
               <div
@@ -597,12 +672,10 @@ export function ProductDetailsModal({
                   flex
                   shrink-0
                   items-center
-
                   rounded-xl
                   border
                   border-stone-200
                   bg-stone-50
-
                   p-1
                 "
               >
@@ -611,7 +684,8 @@ export function ProductDetailsModal({
                   onClick={decreaseQuantity}
                   disabled={
                     quantity === 1 ||
-                    isClosing
+                    isClosing ||
+                    outOfStock
                   }
                   aria-label="Diminuir quantidade"
                   className="
@@ -620,15 +694,11 @@ export function ProductDetailsModal({
                     w-9
                     items-center
                     justify-center
-
                     rounded-lg
                     text-stone-700
-
                     transition
-
                     hover:bg-white
                     hover:text-orange-700
-
                     disabled:cursor-not-allowed
                     disabled:opacity-30
                   "
@@ -655,7 +725,11 @@ export function ProductDetailsModal({
                 <button
                   type="button"
                   onClick={increaseQuantity}
-                  disabled={isClosing}
+                  disabled={
+                    isClosing ||
+                    outOfStock ||
+                    reachedStockLimit
+                  }
                   aria-label="Aumentar quantidade"
                   className="
                     inline-flex
@@ -663,15 +737,11 @@ export function ProductDetailsModal({
                     w-9
                     items-center
                     justify-center
-
                     rounded-lg
                     text-stone-700
-
                     transition
-
                     hover:bg-white
                     hover:text-orange-700
-
                     disabled:cursor-not-allowed
                     disabled:opacity-30
                   "
@@ -684,9 +754,9 @@ export function ProductDetailsModal({
               </div>
             </div>
 
-            {/* =================================
+            {/* =====================================
                 OBSERVAÇÕES
-                ================================= */}
+            ===================================== */}
 
             <div className="mt-4 lg:mt-5">
               <div className="flex items-end justify-between gap-4">
@@ -715,11 +785,9 @@ export function ProductDetailsModal({
               <textarea
                 id="product-notes"
                 value={notes}
-                disabled={isClosing}
+                disabled={isClosing || outOfStock}
                 onChange={(event) =>
-                  setNotes(
-                    event.target.value,
-                  )
+                  setNotes(event.target.value)
                 }
                 maxLength={200}
                 rows={2}
@@ -757,19 +825,16 @@ export function ProductDetailsModal({
               />
             </div>
 
-            {/* =================================
-                BOTÃO
-                ================================= */}
+            {/* =====================================
+                BOTÃO ADICIONAR
+            ===================================== */}
 
             <div
               className="
                 mt-5
-
                 border-t
                 border-stone-100
-
                 pt-4
-
                 lg:mt-auto
                 lg:pt-5
               "
@@ -777,7 +842,7 @@ export function ProductDetailsModal({
               <button
                 type="button"
                 onClick={handleAdd}
-                disabled={isClosing}
+                disabled={isClosing || outOfStock}
                 className="
                   inline-flex
                   min-h-12
@@ -812,6 +877,7 @@ export function ProductDetailsModal({
                   focus-visible:outline-orange-700
 
                   disabled:pointer-events-none
+                  disabled:opacity-50
 
                   motion-reduce:transform-none
                 "
@@ -821,16 +887,22 @@ export function ProductDetailsModal({
                   aria-hidden="true"
                 />
 
-                Adicionar à sacola
+                {outOfStock
+                  ? "Produto esgotado"
+                  : "Adicionar à sacola"}
 
-                <span
-                  className="opacity-60"
-                  aria-hidden="true"
-                >
-                  •
-                </span>
+                {!outOfStock && (
+                  <>
+                    <span
+                      className="opacity-60"
+                      aria-hidden="true"
+                    >
+                      •
+                    </span>
 
-                {currency.format(total)}
+                    {currency.format(total)}
+                  </>
+                )}
               </button>
             </div>
           </div>

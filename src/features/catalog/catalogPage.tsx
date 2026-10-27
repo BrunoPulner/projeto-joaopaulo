@@ -1,18 +1,20 @@
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
 import {
   ArrowLeft,
   CheckCircle2,
+  LoaderCircle,
   Pizza,
+  RefreshCw,
   ShoppingBag,
 } from "lucide-react";
 
-import {
-  categories,
-  products,
-  subcategories,
-  type Product,
-} from "./catalogData";
+import { useCatalog } from "./hooks/useCatalog";
+
+import type {
+  CatalogProduct,
+} from "./types/catalog.types";
 
 import { CategoryVideo } from "./components/CategoryVideo";
 import { CategoryTabs } from "./components/CategoryTabs";
@@ -62,22 +64,58 @@ function formatPrice(cents: number) {
 }
 
 // ============================================
+// VÍDEOS POR CATEGORIA
+// ============================================
+
+// Os vídeos ainda são arquivos locais.
+// O banco controla categorias e produtos.
+
+const categoryVideos: Record<string, string> = {
+  espetinhos: "/video/espetin.mp4",
+  lanches: "/video/hamburguer.mp4",
+  pasteis: "/video/pastel.mp4",
+  pizzas: "/video/pizza.mp4",
+  bebidas: "/video/coca.mp4",
+};
+
+function normalizeSlug(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+// ============================================
 // COMPONENTE
 // ============================================
 
 export function CatalogPage() {
   // ==========================================
+  // CATÁLOGO DA API
+  // ==========================================
+
+  const {
+    categories,
+    subcategories,
+    products,
+    loading,
+    error,
+    reload,
+  } = useCatalog();
+
+  // ==========================================
   // ESTADOS DO CATÁLOGO
   // ==========================================
 
   const [selectedCategory, setSelectedCategory] =
-    useState(categories[0].id);
+    useState<number | null>(null);
 
   const [selectedSubcategory, setSelectedSubcategory] =
-    useState<string | null>(null);
+    useState<number | null>(null);
 
   const [selectedProduct, setSelectedProduct] =
-    useState<Product | null>(null);
+    useState<CatalogProduct | null>(null);
 
   // ==========================================
   // ESTADOS DA PIZZA
@@ -107,7 +145,7 @@ export function CatalogPage() {
 
   const [leaving, setLeaving] = useState(false);
 
-  const pendingCategory = useRef<string | null>(null);
+  const pendingCategory = useRef<number | null>(null);
 
   // ==========================================
   // CARRINHO
@@ -116,43 +154,54 @@ export function CatalogPage() {
   const { addItem, openCart } = useCart();
 
   // ==========================================
-  // CATEGORIAS E PRODUTOS CONVENCIONAIS
+  // CATEGORIA ATIVA
+  // ==========================================
+
+  // Permite que a primeira categoria da API
+  // seja selecionada automaticamente.
+
+  const activeCategoryId =
+    categories.some(
+      (category) => category.id === selectedCategory,
+    )
+      ? selectedCategory
+      : categories[0]?.id ?? null;
+
+  const selectedCategoryData = categories.find(
+    (category) => category.id === activeCategoryId,
+  );
+
+  const categoryName =
+    selectedCategoryData?.name ?? "";
+
+  const categorySlug = selectedCategoryData
+    ? normalizeSlug(selectedCategoryData.slug)
+    : "";
+
+  const isPizzaCategory =
+    categorySlug === "pizzas" ||
+    categorySlug === "pizza";
+
+  // ==========================================
+  // SUBCATEGORIAS
   // ==========================================
 
   const availableSubcategories = subcategories.filter(
     (subcategory) =>
-      subcategory.categoryId === selectedCategory,
+      subcategory.categoryId === activeCategoryId,
   );
 
   const showSubcategoryTabs =
     availableSubcategories.length > 1;
 
-  const activeSubcategory = showSubcategoryTabs
-    ? availableSubcategories.find(
-        (subcategory) =>
-          subcategory.id === selectedSubcategory,
-      )?.id ?? availableSubcategories[0].id
+  const activeSubcategory =
+  showSubcategoryTabs &&
+  availableSubcategories.some(
+    (subcategory) =>
+      subcategory.id === selectedSubcategory,
+  )
+    ? selectedSubcategory
     : null;
-
-  const visibleProducts = products.filter((product) => {
-    if (product.categoryId !== selectedCategory) {
-      return false;
-    }
-
-    return (
-      !showSubcategoryTabs ||
-      product.subcategoryId === activeSubcategory
-    );
-  });
-
-  const selectedCategoryData = categories.find(
-    (category) => category.id === selectedCategory,
-  );
-
-  const isPizzaCategory =
-    selectedCategory === "pizzas";
-
-  const categoryName = selectedCategoryData?.name;
 
   const selectedSubcategoryData =
     availableSubcategories.find(
@@ -163,9 +212,45 @@ export function CatalogPage() {
   const subcategoryName =
     selectedSubcategoryData?.name;
 
+  // ==========================================
+  // PRODUTOS VISÍVEIS
+  // ==========================================
+
+  const visibleProducts = products.filter((product) => {
+  if (product.categoryId !== activeCategoryId) {
+    return false;
+  }
+
+  if (
+    activeSubcategory !== null &&
+    product.subcategoryId !== activeSubcategory
+  ) {
+    return false;
+  }
+
+  return product.pricingType === "FIXED";
+});
+
+  // ==========================================
+  // PRODUTO BASE DA PIZZA
+  // ==========================================
+
+  // A pizza precisa estar associada a um
+  // produto real do banco para entrar no
+  // carrinho e futuramente no checkout.
+
+  const pizzaProduct = products.find(
+    (product) =>
+      product.categoryId === activeCategoryId &&
+      product.pricingType === "PIZZA_CUSTOM",
+  );
+
+  // ==========================================
+  // VÍDEO DA CATEGORIA
+  // ==========================================
+
   const videoSrc =
-    selectedSubcategoryData?.video ??
-    selectedCategoryData?.video;
+    categoryVideos[categorySlug] ?? null;
 
   // ==========================================
   // REINICIAR MONTAGEM DA PIZZA
@@ -184,9 +269,9 @@ export function CatalogPage() {
   // NAVEGAÇÃO ENTRE CATEGORIAS
   // ==========================================
 
-  function handleCategorySelect(categoryId: string) {
+  function handleCategorySelect(categoryId: number) {
     if (
-      categoryId === selectedCategory ||
+      categoryId === activeCategoryId ||
       leaving
     ) {
       return;
@@ -196,33 +281,46 @@ export function CatalogPage() {
     setLeaving(true);
   }
 
-  function finishCategoryTransition() {
+  // Uma única função finaliza a animação e o fallback.
+  // Assim, a nova categoria sempre inicia em "Todos".
+  const finishCategoryTransition = useCallback(() => {
     const categoryId = pendingCategory.current;
 
-    if (!categoryId) return;
-
-    const firstSubcategory = subcategories.find(
-      (subcategory) =>
-        subcategory.categoryId === categoryId,
-    );
-
-    setSelectedCategory(categoryId);
-
-    setSelectedSubcategory(
-      firstSubcategory?.id ?? null,
-    );
-
-    resetPizzaOrder();
+    if (categoryId === null) return;
 
     pendingCategory.current = null;
+    setSelectedCategory(categoryId);
+    setSelectedSubcategory(null);
+    setSelectedProduct(null);
+
+    setPizzaStep("size");
+    setSelectedPizzaSize(null);
+    setSelectedPizzaFlavors([]);
+    setPizzaFlavorTotalCents(0);
+    setSelectedPizzaAddons([]);
+    setPizzaTotalPriceCents(0);
+
     setLeaving(false);
-  }
+  }, []);
+
+  // Fallback para quando o evento de animação não disparar.
+  useEffect(() => {
+    if (!leaving) return;
+
+    const timeout = window.setTimeout(() => {
+      finishCategoryTransition();
+    }, 650);
+
+    return () => window.clearTimeout(timeout);
+  }, [leaving, finishCategoryTransition]);
 
   // ==========================================
   // PRODUTOS CONVENCIONAIS
   // ==========================================
 
-  function handleViewProduct(product: Product) {
+  function handleViewProduct(
+    product: CatalogProduct,
+  ) {
     setSelectedProduct(product);
   }
 
@@ -231,7 +329,7 @@ export function CatalogPage() {
   }
 
   function handleAddProduct(
-    product: Product,
+    product: CatalogProduct,
     quantity: number,
     notes: string,
   ) {
@@ -239,6 +337,8 @@ export function CatalogPage() {
       product,
       quantity,
       notes,
+      type: "PRODUCT",
+      unitPriceCents: product.priceCents,
     });
 
     setSelectedProduct(null);
@@ -246,7 +346,7 @@ export function CatalogPage() {
   }
 
   // ==========================================
-  // ETAPA 1 — TAMANHO
+  // PIZZA — ETAPA 1: TAMANHO
   // ==========================================
 
   function handlePizzaSizeContinue(size: PizzaSize) {
@@ -267,14 +367,17 @@ export function CatalogPage() {
   }
 
   // ==========================================
-  // ETAPA 2 — SABORES
+  // PIZZA — ETAPA 2: SABORES
   // ==========================================
 
   function handlePizzaFlavorsContinue(
     flavors: PizzaCatalogFlavor[],
     totalPriceCents: number,
   ) {
-    if (!selectedPizzaSize || flavors.length === 0) {
+    if (
+      !selectedPizzaSize ||
+      flavors.length === 0
+    ) {
       return;
     }
 
@@ -294,7 +397,7 @@ export function CatalogPage() {
   }
 
   // ==========================================
-  // ETAPA 3 — ADICIONAIS
+  // PIZZA — ETAPA 3: ADICIONAIS
   // ==========================================
 
   function handlePizzaAddonsContinue(
@@ -308,6 +411,143 @@ export function CatalogPage() {
     );
 
     setPizzaStep("review");
+  }
+
+  // ==========================================
+  // PIZZA — ADICIONAR À SACOLA
+  // ==========================================
+
+  function handleAddPizzaToCart() {
+    if (
+      !pizzaProduct ||
+      !selectedPizzaSize ||
+      selectedPizzaFlavors.length === 0
+    ) {
+      return;
+    }
+
+    addItem({
+      product: pizzaProduct,
+      type: "PIZZA",
+      quantity: 1,
+      notes: "",
+      unitPriceCents: pizzaTotalPriceCents,
+
+      pizza: {
+        size: {
+          id: selectedPizzaSize.id,
+          name: selectedPizzaSize.name,
+          slices: selectedPizzaSize.slices,
+          basePriceCents:
+            selectedPizzaSize.basePriceCents,
+        },
+
+        flavors: selectedPizzaFlavors.map(
+          (flavor) => ({
+            id: flavor.id,
+            name: flavor.name,
+            additionalPriceCents:
+              flavor.additionalPriceCents +
+              (flavor.isPremium
+                ? flavor.premiumAdditionalCents
+                : 0),
+            isPremium: flavor.isPremium,
+          }),
+        ),
+
+        addons: selectedPizzaAddons.map(
+          (addon) => ({
+            id: addon.id,
+            name: addon.name,
+            priceCents: addon.priceCents,
+          }),
+        ),
+      },
+    });
+
+    resetPizzaOrder();
+    openCart();
+  }
+
+  // ==========================================
+  // CARREGAMENTO
+  // ==========================================
+
+  if (loading) {
+    return (
+      <main className="flex min-h-[65dvh] items-center justify-center bg-[#fffaf5] px-5">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <LoaderCircle
+            size={38}
+            className="animate-spin text-orange-700"
+            aria-hidden="true"
+          />
+
+          <h1 className="text-xl font-black text-stone-900">
+            Preparando nosso cardápio...
+          </h1>
+
+          <p className="text-sm text-stone-500">
+            Buscando os produtos disponíveis.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  // ==========================================
+  // ERRO DA API
+  // ==========================================
+
+  if (error) {
+    return (
+      <main className="flex min-h-[65dvh] items-center justify-center bg-[#fffaf5] px-5">
+        <div className="w-full max-w-md rounded-2xl border border-red-100 bg-white p-8 text-center shadow-sm">
+          <h1 className="text-xl font-black text-stone-900">
+            Não foi possível carregar o cardápio.
+          </h1>
+
+          <p className="mt-3 text-sm text-stone-500">
+            {error}
+          </p>
+
+          <button
+            type="button"
+            onClick={reload}
+            className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-orange-700 px-5 text-sm font-bold text-white hover:bg-orange-800"
+          >
+            <RefreshCw size={17} />
+            Tentar novamente
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  // ==========================================
+  // CATÁLOGO VAZIO
+  // ==========================================
+
+  if (categories.length === 0) {
+    return (
+      <main className="flex min-h-[65dvh] items-center justify-center bg-[#fffaf5] px-5">
+        <div className="max-w-md text-center">
+          <ShoppingBag
+            size={40}
+            className="mx-auto text-orange-300"
+          />
+
+          <h1 className="mt-4 text-xl font-black text-stone-900">
+            Nosso cardápio está sendo preparado.
+          </h1>
+
+          <p className="mt-2 text-sm text-stone-500">
+            Em breve você encontrará nossos produtos
+            por aqui.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   // ==========================================
@@ -338,12 +578,12 @@ export function CatalogPage() {
             </p>
           </header>
 
-          {/* CARDS DAS CATEGORIAS */}
+          {/* CATEGORIAS */}
 
           <div className="mt-7 sm:mt-8">
             <CategoryTabs
               categories={categories}
-              selectedCategory={selectedCategory}
+              selectedCategory={activeCategoryId}
               onSelect={handleCategorySelect}
             />
           </div>
@@ -356,7 +596,7 @@ export function CatalogPage() {
             className="mt-8 sm:mt-10"
           >
             <div
-              key={selectedCategory}
+              key={activeCategoryId}
               inert={leaving}
               className={
                 leaving
@@ -365,8 +605,7 @@ export function CatalogPage() {
               }
               onAnimationEnd={(event) => {
                 if (
-                  event.target !==
-                  event.currentTarget
+                  event.target !== event.currentTarget
                 ) {
                   return;
                 }
@@ -397,12 +636,8 @@ export function CatalogPage() {
                   {pizzaStep === "flavors" &&
                     selectedPizzaSize && (
                       <PizzaFlavorSelector
-                        sizeId={
-                          selectedPizzaSize.id
-                        }
-                        sizeName={
-                          selectedPizzaSize.name
-                        }
+                        sizeId={selectedPizzaSize.id}
+                        sizeName={selectedPizzaSize.name}
                         basePriceCents={
                           selectedPizzaSize.basePriceCents
                         }
@@ -423,9 +658,7 @@ export function CatalogPage() {
                   {pizzaStep === "addons" &&
                     selectedPizzaFlavors.length > 0 && (
                       <PizzaAddonSelector
-                        flavors={
-                          selectedPizzaFlavors
-                        }
+                        flavors={selectedPizzaFlavors}
                         baseTotalCents={
                           pizzaFlavorTotalCents
                         }
@@ -438,7 +671,7 @@ export function CatalogPage() {
                       />
                     )}
 
-                  {/* ETAPA 4: REVISÃO PROVISÓRIA */}
+                  {/* ETAPA 4: REVISÃO */}
 
                   {pizzaStep === "review" &&
                     selectedPizzaSize && (
@@ -454,12 +687,14 @@ export function CatalogPage() {
                           </h2>
 
                           <p className="mt-2 text-sm text-stone-500">
-                            Confira as escolhas antes de adicionar
+                            Confira suas escolhas antes de adicionar
                             à sacola.
                           </p>
                         </div>
 
                         <div className="mt-7 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+                          {/* TAMANHO */}
+
                           <div className="flex items-center gap-3">
                             <CheckCircle2
                               size={25}
@@ -477,6 +712,8 @@ export function CatalogPage() {
                             </div>
                           </div>
 
+                          {/* SABORES */}
+
                           <div className="mt-5 border-t border-stone-100 pt-5">
                             <p className="text-sm font-black text-stone-900">
                               Sabores escolhidos
@@ -487,19 +724,32 @@ export function CatalogPage() {
                                 (flavor) => (
                                   <div
                                     key={flavor.id}
-                                    className="flex items-center gap-2 text-sm text-stone-600"
+                                    className="flex items-center justify-between gap-3 text-sm text-stone-600"
                                   >
-                                    <CheckCircle2
-                                      size={16}
-                                      className="text-orange-700"
-                                    />
+                                    <span className="flex items-center gap-2">
+                                      <CheckCircle2
+                                        size={16}
+                                        className="text-orange-700"
+                                      />
+                                      {flavor.name}
+                                    </span>
 
-                                    {flavor.name}
+                                    <span className="shrink-0 text-xs text-orange-700">
+                                      +{" "}
+                                      {formatPrice(
+                                        flavor.additionalPriceCents +
+                                          (flavor.isPremium
+                                            ? flavor.premiumAdditionalCents
+                                            : 0),
+                                      )}
+                                    </span>
                                   </div>
                                 ),
                               )}
                             </div>
                           </div>
+
+                          {/* ADICIONAIS */}
 
                           <div className="mt-5 border-t border-stone-100 pt-5">
                             <p className="text-sm font-black text-stone-900">
@@ -517,7 +767,8 @@ export function CatalogPage() {
                                       <span>{addon.name}</span>
 
                                       <span>
-                                        + {formatPrice(
+                                        +{" "}
+                                        {formatPrice(
                                           addon.priceCents,
                                         )}
                                       </span>
@@ -532,6 +783,8 @@ export function CatalogPage() {
                             )}
                           </div>
 
+                          {/* TOTAL */}
+
                           <div className="mt-5 flex items-center justify-between border-t border-stone-100 pt-5">
                             <span className="font-black text-stone-900">
                               Total da pizza
@@ -545,6 +798,8 @@ export function CatalogPage() {
                           </div>
                         </div>
 
+                        {/* VOLTAR */}
+
                         <button
                           type="button"
                           onClick={() =>
@@ -556,10 +811,32 @@ export function CatalogPage() {
                           Voltar aos adicionais
                         </button>
 
-                        <p className="mt-4 text-center text-xs text-stone-500">
-                          A integração com a sacola será feita
-                          na próxima etapa.
-                        </p>
+                        {/* ADICIONAR À SACOLA */}
+
+                        <button
+                          type="button"
+                          onClick={handleAddPizzaToCart}
+                          disabled={!pizzaProduct}
+                          className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-700 px-5 py-3 text-sm font-black text-white shadow-md shadow-orange-900/10 transition hover:bg-orange-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+                        >
+                          <ShoppingBag size={18} />
+                          Adicionar à sacola
+                          <span className="opacity-60">
+                            •
+                          </span>
+                          {formatPrice(
+                            pizzaTotalPriceCents,
+                          )}
+                        </button>
+
+                        {!pizzaProduct && (
+                          <p className="mt-3 text-center text-xs text-red-600">
+                            Não encontramos um produto base de
+                            pizza personalizada no catálogo.
+                            Verifique o cadastro no painel
+                            administrativo.
+                          </p>
+                        )}
                       </div>
                     )}
                 </>
@@ -569,6 +846,7 @@ export function CatalogPage() {
                 // ==================================
 
                 <>
+
                   {/* SUBCATEGORIAS */}
 
                   {showSubcategoryTabs && (
@@ -578,6 +856,18 @@ export function CatalogPage() {
                       className="flex justify-center"
                     >
                       <div className="inline-flex max-w-full flex-wrap justify-center gap-1 rounded-2xl border border-stone-200 bg-white p-1 sm:rounded-full">
+                        <button
+                          type="button"
+                          aria-pressed={activeSubcategory === null}
+                          onClick={() => setSelectedSubcategory(null)}
+                          className={`min-h-11 rounded-xl px-5 py-2.5 text-sm font-bold transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700 motion-reduce:transition-none sm:rounded-full ${
+                            activeSubcategory === null
+                              ? "bg-orange-700 text-white"
+                              : "text-stone-600 hover:bg-orange-50 hover:text-orange-700"
+                          }`}
+                        >
+                          Todos
+                        </button>
                         {availableSubcategories.map(
                           (subcategory) => {
                             const selected =
@@ -678,7 +968,7 @@ export function CatalogPage() {
                       title={
                         subcategoryName
                           ? `${categoryName} — ${subcategoryName}`
-                          : categoryName ?? "cardápio"
+                          : categoryName || "cardápio"
                       }
                     />
                   )}

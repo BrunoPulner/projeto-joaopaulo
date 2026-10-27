@@ -1,32 +1,62 @@
+
 import { useState } from "react";
+
 import {
   ArrowUpRight,
   ImageOff,
   UtensilsCrossed,
 } from "lucide-react";
 
-import type { Product } from "../catalogData";
+import type { CatalogProduct } from "../types/catalog.types";
+
+import { resolveCatalogImageUrl } from "../api/catalog.api";
+
+// ============================================
+// TIPAGEM
+// ============================================
 
 type ProductCardProps = {
-  product: Product;
-  onView: (product: Product) => void;
+  product: CatalogProduct;
+  onView: (product: CatalogProduct) => void;
 };
+
+// ============================================
+// FORMATAÇÃO DE MOEDA
+// ============================================
 
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
 
+// ============================================
+// COMPONENTE
+// ============================================
+
 export function ProductCard({
   product,
   onView,
 }: ProductCardProps) {
-  const [failedImage, setFailedImage] = useState<string | null>(
-    null,
+  const [failedImage, setFailedImage] = useState<
+    string | null
+  >(null);
+
+  // URL da imagem cadastrada no backend
+  const imageUrl = resolveCatalogImageUrl(
+    product.imageUrl,
   );
 
+  // Exibe a imagem apenas se ela existir
+  // e não tiver apresentado erro
   const showImage =
-    Boolean(product.image) && failedImage !== product.image;
+    Boolean(imageUrl) && failedImage !== imageUrl;
+
+  // Preço armazenado em centavos no banco
+  const price = product.priceCents / 100;
+
+  // Identifica produtos com preço personalizado
+  const isCustomPizza =
+    product.pricingType === "PIZZA_CUSTOM";
 
   function handleViewProduct() {
     onView(product);
@@ -56,7 +86,10 @@ export function ProductCard({
         sm:flex-col
       "
     >
-      {/* Imagem do produto */}
+      {/* =====================================
+          IMAGEM DO PRODUTO
+      ===================================== */}
+
       <button
         type="button"
         onClick={handleViewProduct}
@@ -76,10 +109,10 @@ export function ProductCard({
           sm:w-full
         "
       >
-        {showImage ? (
+        {showImage && imageUrl ? (
           <>
             <img
-              src={product.image}
+              src={imageUrl}
               alt={product.name}
               loading="lazy"
               decoding="async"
@@ -96,7 +129,7 @@ export function ProductCard({
                 motion-reduce:transition-none
               "
               onError={() =>
-                setFailedImage(product.image ?? null)
+                setFailedImage(imageUrl)
               }
             />
 
@@ -135,13 +168,21 @@ export function ProductCard({
               aria-hidden="true"
             />
 
-            <span className="hidden text-xs font-semibold sm:block">
+            <span
+              className="
+                hidden
+                text-xs
+                font-semibold
+                sm:block
+              "
+            >
               Imagem em breve
             </span>
           </div>
         )}
 
-        {/* Ícone para indicar abertura */}
+        {/* Indicador visual de abertura */}
+
         <span
           className="
             absolute
@@ -167,11 +208,56 @@ export function ProductCard({
         >
           <ArrowUpRight size={17} />
         </span>
+
+        {/* Identificação de pizza personalizável */}
+
+        {isCustomPizza && (
+          <span
+            className="
+              absolute
+              bottom-3
+              left-3
+              rounded-full
+              bg-orange-700/95
+              px-3
+              py-1.5
+              text-[10px]
+              font-bold
+              text-white
+              shadow-sm
+              backdrop-blur-sm
+              sm:text-xs
+            "
+          >
+            Monte sua pizza
+          </span>
+        )}
       </button>
 
-      {/* Informações */}
-      <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-4">
+      {/* =====================================
+          INFORMAÇÕES DO PRODUTO
+      ===================================== */}
+
+      <div
+        className="
+          flex
+          min-w-0
+          flex-1
+          flex-col
+          p-4
+          sm:p-5
+        "
+      >
+        <div
+          className="
+            flex
+            items-start
+            justify-between
+            gap-4
+          "
+        >
+          {/* Nome */}
+
           <button
             type="button"
             onClick={handleViewProduct}
@@ -199,19 +285,45 @@ export function ProductCard({
             </h3>
           </button>
 
-          <span
+          {/* Preço */}
+
+          <div
             className="
+              flex
               shrink-0
-              whitespace-nowrap
-              text-base
-              font-black
-              text-orange-700
-              sm:text-lg
+              flex-col
+              items-end
+              gap-0.5
             "
           >
-            {currency.format(product.price)}
-          </span>
+            {isCustomPizza && (
+              <span
+                className="
+                  text-[10px]
+                  font-semibold
+                  text-stone-400
+                  sm:text-xs
+                "
+              >
+                A partir de
+              </span>
+            )}
+
+            <span
+              className="
+                whitespace-nowrap
+                text-base
+                font-black
+                text-orange-700
+                sm:text-lg
+              "
+            >
+              {currency.format(price)}
+            </span>
+          </div>
         </div>
+
+        {/* Descrição */}
 
         {product.description && (
           <p
@@ -227,6 +339,10 @@ export function ProductCard({
             {product.description}
           </p>
         )}
+
+        {/* =====================================
+            BOTÃO DE DETALHES
+        ===================================== */}
 
         <div className="mt-auto pt-4">
           <button
@@ -267,7 +383,9 @@ export function ProductCard({
               aria-hidden="true"
             />
 
-            Ver produto
+            {isCustomPizza
+              ? "Montar pizza"
+              : "Ver produto"}
 
             <ArrowUpRight
               size={16}

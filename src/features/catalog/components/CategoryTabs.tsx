@@ -1,3 +1,6 @@
+
+import { useState } from "react";
+
 import {
   Beer,
   Flame,
@@ -6,24 +9,138 @@ import {
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
-import type { Category } from "../catalogData";
+
+import type { CatalogCategory } from "../types/catalog.types";
+
+import { resolveCatalogImageUrl } from "../api/catalog.api";
+
+// ============================================
+// PROPRIEDADES
+// ============================================
 
 type CategoryTabsProps = {
-  categories: Category[];
-  selectedCategory: string;
-  onSelect: (categoryId: string) => void;
+  categories: CatalogCategory[];
+  selectedCategory: number | null;
+  onSelect: (categoryId: number) => void;
 };
+
+// ============================================
+// ÍCONES E IMAGENS ALTERNATIVAS
+// ============================================
 
 const categoryImages: Record<string, string> = {
   espetinhos: "/icons/espetin.png",
+  espetinho: "/icons/espetin.png",
   pasteis: "/icons/pastel.png",
+  pastel: "/icons/pastel.png",
 };
 
 const categoryIcons: Record<string, LucideIcon> = {
   lanches: Hamburger,
+  lanche: Hamburger,
   pizzas: Pizza,
+  pizza: Pizza,
   bebidas: Beer,
+  bebida: Beer,
 };
+
+function normalizeSlug(slug?: string | null) {
+  return (slug ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+// ============================================
+// IMAGEM OU ÍCONE
+// ============================================
+
+type CategoryIconProps = {
+  category: CatalogCategory;
+};
+
+function CategoryIcon({ category }: CategoryIconProps) {
+  const slug = normalizeSlug(
+  category.slug ?? String(category.id),
+);
+
+  const uploadedImage = resolveCatalogImageUrl(
+    category.imageUrl,
+  );
+
+  const fallbackImage = categoryImages[slug];
+
+  const Icon = categoryIcons[slug] ?? Flame;
+
+  const [failedImage, setFailedImage] = useState<
+    string | null
+  >(null);
+
+  const image =
+    uploadedImage && failedImage !== uploadedImage
+      ? uploadedImage
+      : fallbackImage ?? null;
+
+  return (
+    <span
+      aria-hidden="true"
+      className="
+        flex
+        size-8
+        shrink-0
+        items-center
+        justify-center
+        transition-colors
+        duration-300
+        motion-reduce:transition-none
+      "
+    >
+      {image ? (
+        <span
+          className="
+            block
+            size-full
+            bg-current
+          "
+          style={{
+            maskImage: `url("${image}")`,
+            WebkitMaskImage: `url("${image}")`,
+            maskSize: "contain",
+            WebkitMaskSize: "contain",
+            maskPosition: "center",
+            WebkitMaskPosition: "center",
+            maskRepeat: "no-repeat",
+            WebkitMaskRepeat: "no-repeat",
+            maskMode: "alpha",
+          }}
+        >
+          {uploadedImage &&
+            image === uploadedImage && (
+              <img
+                src={uploadedImage}
+                alt=""
+                className="sr-only"
+                onError={() =>
+                  setFailedImage(uploadedImage)
+                }
+              />
+            )}
+        </span>
+      ) : (
+        <Icon
+          size={28}
+          strokeWidth={1.7}
+          className="block"
+        />
+      )}
+    </span>
+  );
+}
+
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
 
 export function CategoryTabs({
   categories,
@@ -46,7 +163,6 @@ export function CategoryTabs({
         justify-center
 
         gap-2
-
         sm:gap-3
       "
     >
@@ -54,20 +170,12 @@ export function CategoryTabs({
         const selected =
           selectedCategory === category.id;
 
-        const image =
-          categoryImages[category.id];
-
-        const Icon =
-          categoryIcons[category.id] ?? Flame;
-
         return (
           <button
             key={category.id}
             type="button"
             aria-pressed={selected}
-            onClick={() =>
-              onSelect(category.id)
-            }
+            onClick={() => onSelect(category.id)}
             style={{
               animationDelay: `${100 + index * 70}ms`,
             }}
@@ -113,75 +221,34 @@ export function CategoryTabs({
               ${
                 selected
                   ? `
-                      border-orange-700
-                      bg-orange-700
-                      text-white
-                      shadow-md
-                      shadow-orange-700/20
-                    `
+                    border-orange-700
+                    bg-orange-700
+                    text-white
+                    shadow-md
+                    shadow-orange-700/20
+                  `
                   : `
-                      border-stone-200
-                      bg-white
-                      text-stone-700
-                      shadow-sm
+                    border-stone-200
+                    bg-white
+                    text-stone-700
+                    shadow-sm
 
-                      hover:-translate-y-0.5
-                      hover:border-orange-300
-                      hover:bg-orange-50
-                      hover:text-orange-700
-                    `
+                    hover:-translate-y-0.5
+                    hover:border-orange-300
+                    hover:bg-orange-50
+                    hover:text-orange-700
+                  `
               }
             `}
           >
             <span
-              aria-hidden="true"
-              className={`
-                flex
-                size-7
-                shrink-0
-                items-center
-                justify-center
-
-                transition-colors
-                duration-300
-
-                motion-reduce:transition-none
-
-                ${
-                  selected
-                    ? "text-white"
-                    : "text-orange-700"
-                }
-              `}
+              className={
+                selected
+                  ? "text-white"
+                  : "text-orange-700"
+              }
             >
-              {image ? (
-                <span
-                  className="
-                    block
-                    size-full
-                    bg-current
-                  "
-                  style={{
-                    maskImage: `url("${image}")`,
-                    WebkitMaskImage: `url("${image}")`,
-                    maskSize: "contain",
-                    WebkitMaskSize: "contain",
-                    maskPosition: "center",
-                    WebkitMaskPosition:
-                      "center",
-                    maskRepeat: "no-repeat",
-                    WebkitMaskRepeat:
-                      "no-repeat",
-                    maskMode: "alpha",
-                  }}
-                />
-              ) : (
-                <Icon
-                  size={28}
-                  strokeWidth={1.7}
-                  className="block"
-                />
-              )}
+              <CategoryIcon category={category} />
             </span>
 
             <span
@@ -190,6 +257,7 @@ export function CategoryTabs({
                 truncate
                 leading-5
               "
+              title={category.name}
             >
               {category.name}
             </span>
