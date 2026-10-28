@@ -564,3 +564,54 @@ model PizzaFlavorAddon {
   @@unique([pizzaFlavorId, addonId])
   @@index([addonId])
 }
+
+
+
+ // ============================================
+ // CONFIGURAÇÕES DE ENTREGA DO RESTAURANTE
+ // ============================================
+
+model DeliverySettings {
+  id Int @id @default(autoincrement())
+
+  // Valor fixo para endereços dentro da área
+  // de entrega, sempre em centavos.
+  // 800 = R$ 8,00.
+  fixedFeeCents Int @default(800)
+
+  // Permite ativar ou suspender as entregas.
+  isEnabled Boolean @default(true)
+
+  // Telefone para consultas sobre entregas
+  // fora da área atendida.
+  contactPhone String?
+
+  // Mensagem exibida quando o endereço
+  // estiver fora do perímetro.
+  unavailableMessage String @default("Entrega indisponível neste endereço. Entre em contato com o restaurante para consultar a possibilidade de entrega.")
+
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+}
+
+
+// ============================================
+// ÁREA GEOGRÁFICA DE ENTREGA
+// ============================================
+
+model DeliveryZone {
+  id Int @id @default(autoincrement())
+
+  // Nome da região configurada.
+  name String @default("Zona urbana de Rebouças")
+
+  // Polígono GeoJSON desenhado no Google Maps.
+  // Armazena longitude e latitude dos vértices.
+  polygon Json
+
+  // Permite desativar a área sem excluí-la.
+  isActive Boolean @default(true)
+
+  createdAt TimestamptzString @default(now())
+  updatedAt temporal.updatedAtString()
+}

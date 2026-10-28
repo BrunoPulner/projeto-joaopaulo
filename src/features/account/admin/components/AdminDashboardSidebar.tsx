@@ -9,6 +9,7 @@ import {
   UsersRound,
   LogOut,
   LoaderCircle,
+  Truck,
 } from "lucide-react";
 
 import { Link, useNavigate } from "react-router-dom";
@@ -20,7 +21,8 @@ export type AdminDashboardSection =
   | "products"
   | "categories"
   | "orders"
-  | "customers";
+  | "customers"
+  | "delivery";
 
 type AdminDashboardSidebarProps = {
   activeSection: AdminDashboardSection;
@@ -53,6 +55,11 @@ const sections = [
     label: "Clientes",
     icon: UsersRound,
   },
+  {
+  id: "delivery",
+  label: "Entregas e Fretes",
+  icon: Truck,
+},
 ] as const;
 
 export function AdminDashboardSidebar({

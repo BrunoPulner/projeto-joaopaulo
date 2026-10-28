@@ -52,6 +52,15 @@ import { pizzaCatalogFlavorsRouter } from "./modules/pizza-catalog-flavors/pizza
 import { pizzaAddonsRouter } from "./modules/pizza-addons/pizza-addons.routes.js";
 
 // ============================================
+// ENTREGAS E FRETES
+// ============================================
+
+import {
+  deliverySettingsAdminRouter,
+  deliveryAvailabilityRouter,
+} from "./modules/delivery-settings/delivery-settings.routes.js";
+
+// ============================================
 // UPLOADS E IMAGENS
 // ============================================
 
@@ -66,19 +75,33 @@ const app = express();
 
 const PORT = Number(process.env.PORT) || 3000;
 
+// ============================================
+// 1. CONFIGURAÇÃO DE CORS
+// ============================================
+
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
 ];
 
-// ============================================
-// 1. CORS
-// ============================================
-
+// O CORS precisa ser registrado antes
+// de todas as rotas da aplicação.
 app.use(
   cors({
     origin: allowedOrigins,
     credentials: true,
+    methods: [
+      "GET",
+      "POST",
+      "PATCH",
+      "PUT",
+      "DELETE",
+      "OPTIONS",
+    ],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
   }),
 );
 
@@ -86,14 +109,35 @@ app.use(
 // 2. AUTENTICAÇÃO BETTER AUTH
 // ============================================
 
-// Deve permanecer antes de express.json()
-app.all("/api/auth/*splat", toNodeHandler(auth));
+// O Better Auth precisa receber o corpo
+// original da requisição.
+//
+// Por isso, essa rota deve permanecer
+// ANTES do express.json().
+app.all(
+  "/api/auth/*splat",
+  toNodeHandler(auth),
+);
 
 // ============================================
-// 3. JSON
+// 3. PARSERS DE REQUISIÇÃO
 // ============================================
 
+// Permite receber JSON nos endpoints.
+//
+// Exemplo:
+// {
+//   "latitude": -25.62,
+//   "longitude": -50.68
+// }
 app.use(express.json());
+
+// Permite interpretar formulários URL-encoded.
+app.use(
+  express.urlencoded({
+    extended: true,
+  }),
+);
 
 // ============================================
 // 4. HEALTH CHECK
@@ -110,28 +154,42 @@ app.get("/health", (_request, response) => {
 // 5. CATEGORIAS E SUBCATEGORIAS
 // ============================================
 
-app.use("/api/categories", categoriesRouter);
+app.use(
+  "/api/categories",
+  categoriesRouter,
+);
 
-app.use("/api/subcategories", subcategoriesRouter);
+app.use(
+  "/api/subcategories",
+  subcategoriesRouter,
+);
 
 // ============================================
 // 6. PRODUTOS
 // ============================================
 
-// Listagem pública e gerenciamento administrativo
-app.use("/api/products", productsRouter);
+app.use(
+  "/api/products",
+  productsRouter,
+);
 
 // ============================================
 // 7. ADICIONAIS
 // ============================================
 
-// Cadastro e gerenciamento
-app.use("/api/addons", addonsRouter);
+// Cadastro e gerenciamento de adicionais
+app.use(
+  "/api/addons",
+  addonsRouter,
+);
 
 // Adicionais disponíveis por produto
-app.use("/api/products", productAddonsPublicRouter);
+app.use(
+  "/api/products",
+  productAddonsPublicRouter,
+);
 
-// Gerenciamento dos vínculos
+// Gerenciamento administrativo dos vínculos
 app.use(
   "/api/admin/product-addons",
   productAddonsAdminRouter,
@@ -141,8 +199,11 @@ app.use(
 // 8. PIZZAS
 // ============================================
 
-// Tamanhos cadastrados
-app.use("/api/pizza-sizes", pizzaSizesRouter);
+// Tamanhos
+app.use(
+  "/api/pizza-sizes",
+  pizzaSizesRouter,
+);
 
 // Catálogo compartilhado de sabores
 app.use(
@@ -150,22 +211,64 @@ app.use(
   pizzaCatalogFlavorsRouter,
 );
 
-// Adicionais de pizzas
-app.use("/api/pizza-addons", pizzaAddonsRouter);
+// Adicionais específicos de pizza
+app.use(
+  "/api/pizza-addons",
+  pizzaAddonsRouter,
+);
 
 // Modelo anterior, mantido para compatibilidade
-app.use("/api/pizza-flavors", pizzaFlavorsRouter);
+app.use(
+  "/api/pizza-flavors",
+  pizzaFlavorsRouter,
+);
 
 // ============================================
-// 9. UPLOADS E IMAGENS
+// 9. ENTREGAS E FRETES
 // ============================================
 
-app.use("/api/admin/uploads", uploadsRouter);
+// Configurações administrativas:
+// - Taxa fixa
+// - WhatsApp
+// - Ativação de entregas
+// - Cadastro e edição do perímetro
+//
+// O router aplica requireAuth e
+// requireRole("ADMIN").
+app.use(
+  "/api/admin/delivery-settings",
+  deliverySettingsAdminRouter,
+);
 
-app.use("/api/images", productImagesRouter);
+// Consulta pública de disponibilidade.
+//
+// POST /api/delivery/availability
+//
+// Recebe latitude e longitude e verifica
+// se estão dentro do perímetro permitido.
+app.use(
+  "/api/delivery",
+  deliveryAvailabilityRouter,
+);
 
 // ============================================
-// 10. INICIALIZAÇÃO DO SERVIDOR
+// 10. UPLOADS E IMAGENS
+// ============================================
+
+// Upload administrativo
+app.use(
+  "/api/admin/uploads",
+  uploadsRouter,
+);
+
+// Imagens públicas dos produtos
+app.use(
+  "/api/images",
+  productImagesRouter,
+);
+
+// ============================================
+// 11. INICIALIZAÇÃO DO SERVIDOR
 // ============================================
 
 app.listen(PORT, () => {
