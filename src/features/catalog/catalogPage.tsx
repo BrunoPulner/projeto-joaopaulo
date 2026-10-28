@@ -345,6 +345,45 @@ export function CatalogPage() {
     openCart();
   }
 
+
+  
+  // ==========================================
+  // ADICIONAR DIRETAMENTE PELO CARD
+  // ==========================================
+
+  function handleQuickAddProduct(
+    product: CatalogProduct,
+    quantity: number,
+  ) {
+    // Pizzas precisam passar pelo fluxo de
+    // personalização antes de entrar na sacola.
+    if (product.pricingType === "PIZZA_CUSTOM") {
+      handleViewProduct(product);
+      return;
+    }
+
+    // Garante uma quantidade inteira e positiva.
+    if (
+      !Number.isSafeInteger(quantity) ||
+      quantity < 1
+    ) {
+      return;
+    }
+
+    // Adiciona o produto sem observações.
+    addItem({
+      product,
+      quantity,
+      notes: "",
+      type: "PRODUCT",
+      unitPriceCents: product.priceCents,
+    });
+
+    // Abre a sacola após adicionar.
+    openCart();
+  }
+
+
   // ==========================================
   // PIZZA — ETAPA 1: TAMANHO
   // ==========================================
@@ -930,13 +969,14 @@ export function CatalogPage() {
                       <div className="grid gap-4 sm:grid-cols-3 lg:gap-5">
                         {visibleProducts.map(
                           (product) => (
-                            <ProductCard
-                              key={product.id}
-                              product={product}
-                              onView={
-                                handleViewProduct
-                              }
-                            />
+                            
+<ProductCard
+  key={product.id}
+  product={product}
+  onView={handleViewProduct}
+  onAddToCart={handleQuickAddProduct}
+/>
+
                           ),
                         )}
                       </div>

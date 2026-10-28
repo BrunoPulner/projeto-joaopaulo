@@ -2,16 +2,20 @@
 import { useEffect, useState } from "react";
 
 import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
   ImageOff,
+  MapPin,
   Minus,
+  Pencil,
+  Pizza,
   Plus,
   ShoppingBag,
-  Trash2,
-  X,
-  Pizza,
   Store,
+  Trash2,
   Truck,
-  ArrowRight,
+  X,
 } from "lucide-react";
 
 import type { CartItem, CartProduct } from "../cartTypes";
@@ -23,6 +27,12 @@ import {
 } from "../cartTypes";
 
 import { resolveCatalogImageUrl } from "../../catalog/api/catalog.api";
+
+import { DeliveryAddressSheet } from "./DeliveryAddressSheet";
+
+import type {
+  ValidatedDeliveryAddress,
+} from "../delivery/deliveryAddress.types";
 
 // ============================================
 // TIPAGEM
@@ -36,6 +46,8 @@ type CartDrawerProps = {
   onDecrease: (itemId: string) => void;
   onRemove: (itemId: string) => void;
 };
+
+type FulfillmentType = "DELIVERY" | "PICKUP";
 
 // ============================================
 // UTILITÁRIOS
@@ -83,6 +95,26 @@ export function CartDrawer({
   onRemove,
 }: CartDrawerProps) {
   // ==========================================
+  // MODALIDADE DE RECEBIMENTO
+  // ==========================================
+
+  const [fulfillmentType, setFulfillmentType] =
+    useState<FulfillmentType>("DELIVERY");
+
+  // ==========================================
+  // ENDEREÇO E DISPONIBILIDADE
+  // ==========================================
+
+  const [deliveryAddress, setDeliveryAddress] =
+    useState<ValidatedDeliveryAddress | null>(null);
+
+  const [showAddressSelector, setShowAddressSelector] =
+    useState(false);
+
+  const [deliveryNeedsRevalidation, setDeliveryNeedsRevalidation] =
+    useState(false);
+
+  // ==========================================
   // FECHAR COM ESCAPE
   // ==========================================
 
@@ -90,7 +122,7 @@ export function CartDrawer({
     if (!open) return;
 
     function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !showAddressSelector) {
         onClose();
       }
     }
@@ -106,7 +138,7 @@ export function CartDrawer({
         handleEscape,
       );
     };
-  }, [open, onClose]);
+  }, [open, onClose, showAddressSelector]);
 
   // ==========================================
   // TOTAIS
@@ -119,16 +151,83 @@ export function CartDrawer({
 
   const subtotalCents = getCartSubtotalCents(items);
 
-  // Estado visual temporário: será conectado ao pedido
-  // quando implementarmos endereço e cálculo de frete.
-  const [fulfillmentType, setFulfillmentType] = useState<
-    "DELIVERY" | "PICKUP"
-  >("DELIVERY");
-
   const isDelivery = fulfillmentType === "DELIVERY";
-  const deliveryFeeCents: number | null = isDelivery ? null : 0;
-  const hasCalculatedTotal = deliveryFeeCents !== null;
-  const totalCents = subtotalCents + (deliveryFeeCents ?? 0);
+
+  const deliveryAvailable =
+    isDelivery &&
+    !deliveryNeedsRevalidation &&
+    deliveryAddress?.availability.available === true &&
+    typeof deliveryAddress.availability.feeCents ===
+      "number" &&
+    Number.isFinite(
+      deliveryAddress.availability.feeCents,
+    );
+
+  const deliveryFeeCents: number | null =
+    !isDelivery
+      ? 0
+      : deliveryAvailable
+        ? (deliveryAddress?.availability.feeCents ?? null)
+        : null;
+
+  const hasCalculatedTotal =
+    deliveryFeeCents !== null;
+
+  const totalCents =
+    subtotalCents + (deliveryFeeCents ?? 0);
+
+  // ==========================================
+  // CONFIRMAR ENDEREÇO
+  // ==========================================
+
+  function handleAddressConfirmed(
+    result: ValidatedDeliveryAddress,
+  ) {
+    setDeliveryAddress(result);
+    setDeliveryNeedsRevalidation(false);
+    setShowAddressSelector(false);
+  }
+
+  // ==========================================
+  // ADICIONAR / ALTERAR ENDEREÇO
+  // ==========================================
+
+  function handleChangeAddress() {
+    setShowAddressSelector(true);
+  }
+
+  // ==========================================
+  // MODALIDADE DE RECEBIMENTO
+  // ==========================================
+
+  function handleFulfillmentChange(
+    type: FulfillmentType,
+  ) {
+    if (type === "DELIVERY") {
+      setFulfillmentType("DELIVERY");
+      if (!deliveryAddress || deliveryNeedsRevalidation) {
+        setShowAddressSelector(true);
+      }
+      return;
+    }
+
+    setFulfillmentType("PICKUP");
+    setShowAddressSelector(false);
+    // Ao voltar à entrega, será necessária nova validação.
+    setDeliveryNeedsRevalidation(true);
+  }
+
+  // ==========================================
+  // CANCELAR SELEÇÃO DE ENDEREÇO
+  // ==========================================
+
+  function handleCancelAddressSelection() {
+    setShowAddressSelector(false);
+  }
+
+  // ==========================================
+  // INTERFACE
+  // ==========================================
 
   return (
     <div
@@ -145,20 +244,16 @@ export function CartDrawer({
       <button
         type="button"
         aria-label="Fechar sacola"
-        onClick={onClose}
-        tabIndex={open ? 0 : -1}
+        onClick={() => {
+          if (!showAddressSelector) onClose();
+        }}
+        tabIndex={open && !showAddressSelector ? 0 : -1}
         className={`
-          absolute
-          inset-0
+          absolute inset-0
           bg-stone-950/55
           backdrop-blur-[1px]
-          transition-opacity
-          duration-500
-          ${
-            open
-              ? "opacity-100"
-              : "opacity-0"
-          }
+          transition-opacity duration-500
+          ${open ? "opacity-100" : "opacity-0"}
         `}
       />
 
@@ -173,28 +268,12 @@ export function CartDrawer({
         aria-labelledby="cart-title"
         inert={!open}
         className={`
-          absolute
-          inset-y-0
-          right-0
-
-          flex
-          w-full
-          max-w-md
-          flex-col
-          overflow-hidden
-
-          bg-[#fffdfb]
+          absolute inset-y-0 right-0
+          flex w-full max-w-md flex-col
+          overflow-hidden bg-[#fffdfb]
           shadow-2xl
-
-          transition-transform
-          duration-500
-          ease-in-out
-
-          ${
-            open
-              ? "translate-x-0"
-              : "translate-x-full"
-          }
+          transition-transform duration-500 ease-in-out
+          ${open ? "translate-x-0" : "translate-x-full"}
         `}
       >
         {/* =====================================
@@ -238,7 +317,7 @@ export function CartDrawer({
         </div>
 
         {/* =====================================
-            CONTEÚDO
+            CONTEÚDO ROLÁVEL
         ===================================== */}
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -263,6 +342,8 @@ export function CartDrawer({
             </div>
           ) : (
             <div className="space-y-3 p-4 pb-4 sm:p-5">
+              {/* PRODUTOS */}
+
               {items.map((item) => (
                 <CartProduct
                   key={item.id}
@@ -274,91 +355,252 @@ export function CartDrawer({
                 />
               ))}
 
-
             </div>
           )}
         </div>
 
         {/* =====================================
             RECEBIMENTO FIXO
-            Fora da rolagem dos produtos
         ===================================== */}
 
         {items.length > 0 && (
           <div className="shrink-0 border-t border-stone-200 bg-[#fffdfb] px-4 py-3 sm:px-5">
-              {/* Modalidade de recebimento — interface inicial */}
-              <section className="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm" aria-labelledby="receiving-title">
-                <h3 id="receiving-title" className="text-sm font-black text-stone-900">
-                  Como deseja receber seu pedido?
-                </h3>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    aria-pressed={isDelivery}
-                    onClick={() => setFulfillmentType("DELIVERY")}
-                    className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-2 py-3 text-sm font-bold transition-colors ${
-                      isDelivery
-                        ? "border-orange-600 bg-orange-50 text-orange-800"
-                        : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
-                    }`}
-                  >
-                    <Truck size={17} aria-hidden="true" />
-                    Entrega
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={!isDelivery}
-                    onClick={() => setFulfillmentType("PICKUP")}
-                    className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-2 py-3 text-sm font-bold transition-colors ${
-                      !isDelivery
-                        ? "border-orange-600 bg-orange-50 text-orange-800"
-                        : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
-                    }`}
-                  >
-                    <Store size={17} aria-hidden="true" />
-                    Retirada
-                  </button>
+            {/* MODALIDADE DE RECEBIMENTO */}
+
+            <section
+              className="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm"
+              aria-labelledby="receiving-title"
+            >
+              <h3
+                id="receiving-title"
+                className="text-sm font-black text-stone-900"
+              >
+                Como deseja receber seu pedido?
+              </h3>
+
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {/* ENTREGA */}
+
+                <button
+                  type="button"
+                  aria-pressed={isDelivery}
+                  onClick={() =>
+                    handleFulfillmentChange("DELIVERY")
+                  }
+                  className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-2 py-3 text-sm font-bold transition-colors ${
+                    isDelivery
+                      ? "border-orange-600 bg-orange-50 text-orange-800"
+                      : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+                  }`}
+                >
+                  <Truck
+                    size={17}
+                    aria-hidden="true"
+                  />
+                  Entrega
+                </button>
+
+                {/* RETIRADA */}
+
+                <button
+                  type="button"
+                  aria-pressed={!isDelivery}
+                  onClick={() =>
+                    handleFulfillmentChange("PICKUP")
+                  }
+                  className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-2 py-3 text-sm font-bold transition-colors ${
+                    !isDelivery
+                      ? "border-orange-600 bg-orange-50 text-orange-800"
+                      : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+                  }`}
+                >
+                  <Store
+                    size={17}
+                    aria-hidden="true"
+                  />
+                  Retirada
+                </button>
+              </div>
+            </section>
+
+            {/* =====================================
+                ENDEREÇO DE ENTREGA
+            ===================================== */}
+
+            {isDelivery && (
+              <section className="mt-3 rounded-2xl border border-stone-200 bg-white p-3 shadow-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="flex items-center gap-2 text-sm font-black text-stone-900">
+                    <MapPin
+                      size={17}
+                      className="text-orange-600"
+                    />
+                    Endereço de entrega
+                  </h3>
+
+                  {deliveryAddress && (
+                    <button
+                      type="button"
+                      onClick={handleChangeAddress}
+                      className="flex items-center gap-1 text-xs font-bold text-orange-700 transition hover:text-orange-800"
+                    >
+                      <Pencil size={13} />
+                      Alterar
+                    </button>
+                  )}
                 </div>
 
+                {deliveryAddress ? (
+                  <div className="mt-2 space-y-1.5">
+                    <p className="text-sm font-bold text-stone-800">
+                      {deliveryAddress.address.street},{" "}
+                      {deliveryAddress.address.number}
+                    </p>
 
+                    <p className="text-xs text-stone-500">
+                      {deliveryAddress.address.neighborhood}
+                      {" - "}
+                      {deliveryAddress.address.city}/
+                      {deliveryAddress.address.state}
+                    </p>
+
+                    {deliveryAddress.address.complement && (
+                      <p className="text-xs text-stone-500">
+                        {deliveryAddress.address.complement}
+                      </p>
+                    )}
+
+                    {/* DISPONIBILIDADE */}
+
+                    {deliveryNeedsRevalidation ? (
+                      <div className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800">
+                        <AlertCircle
+                          size={16}
+                          className="shrink-0"
+                        />
+                        Confirme novamente seu endereço
+                        para atualizar a disponibilidade
+                        e o frete.
+                      </div>
+                    ) : deliveryAvailable ? (
+                      <div className="flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-xs font-bold text-green-700">
+                        <CheckCircle2 size={16} />
+                        Entrega disponível para este endereço
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700">
+                        <AlertCircle
+                          size={16}
+                          className="shrink-0"
+                        />
+                        Entrega indisponível neste endereço.
+                      </div>
+                    )}
+
+                    {deliveryNeedsRevalidation && (
+                      <button
+                        type="button"
+                        onClick={handleChangeAddress}
+                        className="w-full rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 text-xs font-bold text-orange-700 hover:bg-orange-100"
+                      >
+                        Confirmar endereço novamente
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-3">
+                    <p className="text-xs leading-relaxed text-stone-500">
+                      Informe seu endereço para verificar
+                      a disponibilidade e calcular o frete.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowAddressSelector(true)
+                      }
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-700 transition hover:bg-orange-100"
+                    >
+                      <MapPin size={17} />
+                      Adicionar endereço
+                    </button>
+                  </div>
+                )}
               </section>
+            )}
           </div>
         )}
 
         {/* =====================================
-            RESUMO
+            RESUMO FINANCEIRO
         ===================================== */}
 
         <div className="shrink-0 border-t border-stone-200 bg-white px-4 py-4 shadow-[0_-8px_24px_rgba(28,25,23,0.04)] sm:px-5">
           <div className="space-y-2.5">
+            {/* SUBTOTAL */}
+
             <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-stone-600">Subtotal dos itens</span>
-              <strong className="font-bold text-stone-900">{formatPrice(subtotalCents)}</strong>
+              <span className="text-stone-600">
+                Subtotal dos itens
+              </span>
+
+              <strong className="font-bold text-stone-900">
+                {formatPrice(subtotalCents)}
+              </strong>
             </div>
+
+            {/* FRETE */}
+
             <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-stone-600">Taxa de entrega</span>
-              <span className={`font-bold ${isDelivery ? "text-orange-700" : "text-green-700"}`}>
-                {isDelivery ? "A calcular" : "Grátis"}
+              <span className="text-stone-600">
+                Taxa de entrega
+              </span>
+
+              <span
+                className={`font-bold ${
+                  !isDelivery
+                    ? "text-green-700"
+                    : deliveryFeeCents !== null
+                      ? "text-orange-700"
+                      : "text-stone-500"
+                }`}
+              >
+                {!isDelivery
+                  ? "Grátis"
+                  : deliveryFeeCents !== null
+                    ? formatPrice(deliveryFeeCents)
+                    : "A calcular"}
               </span>
             </div>
+
+            {/* TOTAL */}
+
             <div className="border-t border-stone-100 pt-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-black text-stone-900">
-                  {hasCalculatedTotal ? "Total" : "Total parcial"}
+                  {hasCalculatedTotal
+                    ? "Total"
+                    : "Total parcial"}
                 </span>
+
                 <strong className="text-xl font-black text-stone-950">
                   {formatPrice(totalCents)}
                 </strong>
               </div>
-              {isDelivery && (
+
+              {isDelivery && !hasCalculatedTotal && (
                 <p className="mt-1 text-[11px] leading-relaxed text-stone-500">
-                  A taxa de entrega ainda não está incluída.
+                  A taxa de entrega ainda não está
+                  incluída.
                 </p>
               )}
             </div>
           </div>
 
-          {/* Checkout será habilitado após implementar pedido e frete. */}
+          {/* =====================================
+              CONTINUAR PEDIDO
+          ===================================== */}
+
           <button
             type="button"
             disabled
@@ -366,9 +608,15 @@ export function CartDrawer({
             className="mt-4 inline-flex min-h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-stone-300 px-5 py-3 text-sm font-black text-white"
           >
             Continuar pedido
-            <ArrowRight size={17} aria-hidden="true" />
+
+            <ArrowRight
+              size={17}
+              aria-hidden="true"
+            />
           </button>
-          
+
+          {/* CONTINUAR COMPRANDO */}
+
           <button
             type="button"
             onClick={onClose}
@@ -378,6 +626,13 @@ export function CartDrawer({
           </button>
         </div>
       </aside>
+
+      <DeliveryAddressSheet
+        open={open && isDelivery && showAddressSelector}
+        initialAddress={deliveryAddress?.address ?? null}
+        onClose={handleCancelAddressSelection}
+        onConfirm={handleAddressConfirmed}
+      />
     </div>
   );
 }
