@@ -20,6 +20,8 @@ import {
   type UpdateDeliverySettingsInput,
 } from "./deliverySettingsApi";
 
+import { DeliveryZoneMap } from "./DeliveryZoneMap";
+
 // ============================================
 // TIPOS
 // ============================================
@@ -75,8 +77,15 @@ function settingsToForm(
   };
 }
 
+function formatCurrency(cents: number): string {
+  return (cents / 100).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
 // ============================================
-// COMPONENTE
+// COMPONENTE PRINCIPAL
 // ============================================
 
 export function AdminDeliverySettings() {
@@ -94,6 +103,10 @@ export function AdminDeliverySettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
+
+  // ============================================
+  // CARREGAR CONFIGURAÇÕES
+  // ============================================
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -118,42 +131,50 @@ export function AdminDeliverySettings() {
     }
   }, []);
 
+  // ============================================
+  // CARREGAMENTO INICIAL
+  // ============================================
+
   useEffect(() => {
-  let cancelled = false;
+    let cancelled = false;
 
-  async function initializeSettings() {
-    try {
-      const settings = await getDeliverySettings();
+    async function initializeSettings() {
+      try {
+        const settings = await getDeliverySettings();
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      const nextForm = settingsToForm(settings);
+        const nextForm = settingsToForm(settings);
 
-      setForm(nextForm);
-      setOriginalForm(nextForm);
-    } catch (error) {
-      if (cancelled) return;
+        setForm(nextForm);
+        setOriginalForm(nextForm);
+      } catch (error) {
+        if (cancelled) return;
 
-      setFeedback({
-        type: "error",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Não foi possível carregar as configurações.",
-      });
-    } finally {
-      if (!cancelled) {
-        setLoading(false);
+        setFeedback({
+          type: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Não foi possível carregar as configurações.",
+        });
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
-  }
 
-  void initializeSettings();
+    void initializeSettings();
 
-  return () => {
-    cancelled = true;
-  };
-}, []);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ============================================
+  // CONTROLE DE ALTERAÇÕES
+  // ============================================
 
   const hasChanges =
     originalForm !== null &&
@@ -173,10 +194,17 @@ export function AdminDeliverySettings() {
     setFeedback(null);
   };
 
-  const handleSave = async () => {
-    if (saving || loading) return;
+  // ============================================
+  // SALVAR CONFIGURAÇÕES
+  // ============================================
 
-    if (fixedFeeCents === null || fixedFeeCents > 1_000_000) {
+  const handleSave = async () => {
+    if (saving || loading || !hasChanges) return;
+
+    if (
+      fixedFeeCents === null ||
+      fixedFeeCents > 1_000_000
+    ) {
       setFeedback({
         type: "error",
         message:
@@ -228,7 +256,8 @@ export function AdminDeliverySettings() {
 
       setFeedback({
         type: "success",
-        message: "Configurações de entrega salvas com sucesso!",
+        message:
+          "Configurações de entrega salvas com sucesso!",
       });
     } catch (error) {
       setFeedback({
@@ -255,6 +284,7 @@ export function AdminDeliverySettings() {
             size={30}
             className="animate-spin text-orange-600"
           />
+
           <p className="text-sm font-medium">
             Carregando configurações de entrega...
           </p>
@@ -264,17 +294,20 @@ export function AdminDeliverySettings() {
   }
 
   // ============================================
-  // INTERFACE
+  // INTERFACE PRINCIPAL
   // ============================================
 
   return (
     <section className="space-y-6">
-      {/* CABEÇALHO */}
+      {/* ========================================
+          CABEÇALHO
+      ======================================== */}
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="mb-2 flex items-center gap-2 text-orange-600">
             <Truck size={20} />
+
             <span className="text-xs font-bold uppercase tracking-widest">
               Administração
             </span>
@@ -285,8 +318,8 @@ export function AdminDeliverySettings() {
           </h2>
 
           <p className="mt-1 text-sm text-stone-500">
-            Configure a taxa fixa e as condições de entrega
-            do restaurante.
+            Configure as taxas, regiões atendidas e
+            condições de entrega do restaurante.
           </p>
         </div>
 
@@ -297,11 +330,13 @@ export function AdminDeliverySettings() {
           className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
         >
           <RefreshCw size={16} />
-          Atualizar
+          Atualizar configurações
         </button>
       </div>
 
-      {/* FEEDBACK */}
+      {/* ========================================
+          FEEDBACK
+      ======================================== */}
 
       {feedback && (
         <div
@@ -313,19 +348,31 @@ export function AdminDeliverySettings() {
           }`}
         >
           {feedback.type === "success" ? (
-            <CheckCircle2 size={19} className="shrink-0" />
+            <CheckCircle2
+              size={19}
+              className="shrink-0"
+            />
           ) : (
-            <AlertCircle size={19} className="shrink-0" />
+            <AlertCircle
+              size={19}
+              className="shrink-0"
+            />
           )}
 
-          <p className="font-medium">{feedback.message}</p>
+          <p className="font-medium">
+            {feedback.message}
+          </p>
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-        {/* FORMULÁRIO PRINCIPAL */}
+      {/* ========================================
+          CONFIGURAÇÕES E RESUMO
+      ======================================== */}
 
-        <div className="space-y-5">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        {/* COLUNA PRINCIPAL */}
+
+        <div className="min-w-0 space-y-5">
           {/* ATIVAR ENTREGAS */}
 
           <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
@@ -341,7 +388,8 @@ export function AdminDeliverySettings() {
                   </h3>
 
                   <p className="mt-1 text-sm text-stone-500">
-                    Habilite ou suspenda os pedidos para entrega.
+                    Habilite ou suspenda os pedidos
+                    para entrega.
                   </p>
                 </div>
               </div>
@@ -352,7 +400,10 @@ export function AdminDeliverySettings() {
                 aria-checked={form.isEnabled}
                 aria-label="Habilitar entregas"
                 onClick={() =>
-                  updateField("isEnabled", !form.isEnabled)
+                  updateField(
+                    "isEnabled",
+                    !form.isEnabled,
+                  )
                 }
                 className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
                   form.isEnabled
@@ -385,7 +436,8 @@ export function AdminDeliverySettings() {
                 </h3>
 
                 <p className="text-sm text-stone-500">
-                  Valor cobrado dentro da área delimitada.
+                  Valor cobrado dentro das áreas
+                  de atendimento cadastradas.
                 </p>
               </div>
             </div>
@@ -408,7 +460,10 @@ export function AdminDeliverySettings() {
                 inputMode="decimal"
                 value={form.fixedFee}
                 onChange={(event) =>
-                  updateField("fixedFee", event.target.value)
+                  updateField(
+                    "fixedFee",
+                    event.target.value,
+                  )
                 }
                 placeholder="8,00"
                 className="min-w-0 flex-1 px-4 py-3 text-lg font-bold text-stone-900 outline-none"
@@ -416,8 +471,8 @@ export function AdminDeliverySettings() {
             </div>
 
             <p className="mt-2 text-xs text-stone-500">
-              Exemplo: informe 8,00 para cobrar R$ 8,00
-              por entrega.
+              Exemplo: informe 8,00 para cobrar
+              R$ 8,00 por entrega.
             </p>
           </div>
 
@@ -435,8 +490,8 @@ export function AdminDeliverySettings() {
                 </h3>
 
                 <p className="text-sm text-stone-500">
-                  Número exibido quando o endereço não
-                  estiver na área atendida.
+                  Número exibido quando o endereço
+                  não estiver na área atendida.
                 </p>
               </div>
             </div>
@@ -453,7 +508,10 @@ export function AdminDeliverySettings() {
               type="tel"
               value={form.contactPhone}
               onChange={(event) =>
-                updateField("contactPhone", event.target.value)
+                updateField(
+                  "contactPhone",
+                  event.target.value,
+                )
               }
               placeholder="(42) 99999-9999"
               maxLength={30}
@@ -487,9 +545,11 @@ export function AdminDeliverySettings() {
           </div>
         </div>
 
-        {/* COLUNA LATERAL */}
+        {/* ========================================
+            COLUNA LATERAL
+        ======================================== */}
 
-        <div className="space-y-5">
+        <div className="min-w-0 space-y-5">
           {/* RESUMO */}
 
           <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
@@ -498,6 +558,8 @@ export function AdminDeliverySettings() {
             </h3>
 
             <div className="space-y-4">
+              {/* SITUAÇÃO */}
+
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm text-stone-500">
                   Situação
@@ -510,9 +572,13 @@ export function AdminDeliverySettings() {
                       : "bg-stone-100 text-stone-600"
                   }`}
                 >
-                  {form.isEnabled ? "Habilitadas" : "Desativadas"}
+                  {form.isEnabled
+                    ? "Habilitadas"
+                    : "Desativadas"}
                 </span>
               </div>
+
+              {/* TAXA */}
 
               <div className="border-t border-stone-100 pt-4">
                 <span className="text-sm text-stone-500">
@@ -522,65 +588,81 @@ export function AdminDeliverySettings() {
                 <p className="mt-1 text-2xl font-black text-orange-600">
                   {fixedFeeCents === null
                     ? "Valor inválido"
-                    : (fixedFeeCents / 100).toLocaleString(
-                        "pt-BR",
-                        {
-                          style: "currency",
-                          currency: "BRL",
-                        },
-                      )}
+                    : formatCurrency(fixedFeeCents)}
                 </p>
               </div>
 
-              <div className="border-t border-stone-100 pt-4">
-                <span className="text-sm text-stone-500">
-                  Área de atendimento
-                </span>
+              {/* ÁREA */}
 
-                <p className="mt-1 text-sm font-semibold text-stone-800">
+              <div className="border-t border-stone-100 pt-4">
+                <div className="flex items-center gap-2 text-stone-500">
+                  <MapPinned size={16} />
+
+                  <span className="text-sm">
+                    Área de atendimento
+                  </span>
+                </div>
+
+                <p className="mt-2 text-sm font-semibold text-stone-800">
                   Rebouças — PR
                 </p>
 
-                <p className="mt-1 text-xs text-stone-500">
-                  Perímetro urbano a configurar.
+                <p className="mt-1 text-xs leading-relaxed text-stone-500">
+                  Os perímetros cadastrados e seus
+                  respectivos status podem ser
+                  consultados no mapa abaixo.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* PRÓXIMA ETAPA: MAPA */}
+          {/* INFORMAÇÕES */}
 
-          <div className="rounded-2xl border border-dashed border-orange-200 bg-orange-50/50 p-5">
+          <div className="rounded-2xl border border-orange-200 bg-orange-50/50 p-5">
             <div className="mb-3 inline-flex rounded-xl bg-white p-3 text-orange-600 shadow-sm">
               <MapPinned size={22} />
             </div>
 
             <h3 className="font-bold text-stone-900">
-              Área de entrega
+              Como funciona o frete?
             </h3>
 
             <p className="mt-2 text-sm leading-relaxed text-stone-600">
-              Na próxima etapa, você poderá desenhar
-              e editar a área atendida diretamente no
-              Google Maps.
+              O restaurante define as áreas atendidas
+              diretamente no mapa.
             </p>
 
-            <div className="mt-4 rounded-xl border border-orange-100 bg-white p-3 text-xs font-medium text-orange-700">
-              Enquanto nenhuma área estiver cadastrada,
-              o sistema não liberará entregas pelo site.
+            <p className="mt-3 text-sm leading-relaxed text-stone-600">
+              Quando o cliente informar seu endereço,
+              o sistema verificará se ele está dentro
+              de uma área de entrega ativa.
+            </p>
+
+            <div className="mt-4 rounded-xl border border-orange-100 bg-white p-3 text-xs font-medium leading-relaxed text-orange-700">
+              Endereços fora da região cadastrada
+              não serão liberados automaticamente
+              para entrega.
             </div>
           </div>
         </div>
       </div>
 
-      {/* AÇÕES */}
+      {/* ========================================
+          SALVAR CONFIGURAÇÕES GERAIS
+      ======================================== */}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-        <p className="text-xs text-stone-500">
-          {hasChanges
-            ? "Existem alterações que ainda não foram salvas."
-            : "Configurações sincronizadas com o servidor."}
-        </p>
+        <div>
+          <p className="text-sm font-semibold text-stone-800">
+            Configurações gerais
+          </p>
+
+          <p className="mt-1 text-xs text-stone-500">
+            {hasChanges
+              ? "Existem alterações que ainda não foram salvas."
+              : "Configurações sincronizadas com o servidor."}
+          </p>
+        </div>
 
         <button
           type="button"
@@ -589,13 +671,26 @@ export function AdminDeliverySettings() {
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? (
-            <Loader2 size={17} className="animate-spin" />
+            <Loader2
+              size={17}
+              className="animate-spin"
+            />
           ) : (
             <Save size={17} />
           )}
 
-          {saving ? "Salvando..." : "Salvar alterações"}
+          {saving
+            ? "Salvando..."
+            : "Salvar alterações"}
         </button>
+      </div>
+
+      {/* ========================================
+          MAPA INTERATIVO DE ENTREGAS
+      ======================================== */}
+
+      <div className="min-w-0 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:p-6">
+        <DeliveryZoneMap />
       </div>
     </section>
   );

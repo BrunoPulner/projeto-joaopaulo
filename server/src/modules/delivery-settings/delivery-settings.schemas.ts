@@ -62,45 +62,53 @@ export const updateDeliverySettingsSchema = z
 
 // GeoJSON utiliza a ordem:
 // [longitude, latitude]
+//
+// Atenção:
+// Google Maps normalmente trabalha com:
+// { lat, lng }
+//
+// Ao salvar no banco, converter para:
+// [lng, lat]
+
 const coordinateSchema = z.tuple([
   z.number().finite().min(-180).max(180),
   z.number().finite().min(-90).max(90),
 ]);
 
+// ============================================
+// VALIDAÇÃO DO PERÍMETRO
+// ============================================
+
 const polygonRingSchema = z
   .array(coordinateSchema)
-  .min(4, "O perímetro precisa ter pelo menos três pontos.")
-  .max(501, "O perímetro excedeu o limite de pontos.")
+  .min(
+    4,
+    "O perímetro precisa ter pelo menos três pontos.",
+  )
+  .max(
+    501,
+    "O perímetro excedeu o limite de pontos.",
+  )
   .superRefine((points, ctx) => {
     if (points.length < 4) return;
 
     const first = points[0];
-const last = points[points.length - 1];
+    const last = points[points.length - 1];
 
-// Garantir que os pontos existem antes de acessar
-// as coordenadas.
-if (!first || !last) {
-  return;
-}
+    if (!first || !last) return;
 
-// No GeoJSON, o último ponto deve repetir
-// o primeiro para fechar o polígono.
-if (
-  first[0] !== last[0] ||
-  first[1] !== last[1]
-) {
-  ctx.addIssue({
-    code: "custom",
-    message:
-      "O perímetro deve estar fechado: o último ponto deve repetir o primeiro.",
-  });
-}
+    // ========================================
+    // 1. VERIFICAR FECHAMENTO DO POLÍGONO
+    // ========================================
 
-    // No GeoJSON, o último ponto deve repetir
-    // o primeiro para fechar o polígono.
-    if (!first || !last) {
-  return;
-} {
+    // No GeoJSON, o último ponto precisa
+    // repetir exatamente o primeiro.
+
+    const isClosed =
+      first[0] === last[0] &&
+      first[1] === last[1];
+
+    if (!isClosed) {
       ctx.addIssue({
         code: "custom",
         message:
@@ -108,12 +116,19 @@ if (
       });
     }
 
-    // Exige pelo menos três vértices diferentes.
+    // ========================================
+    // 2. VERIFICAR VÉRTICES DIFERENTES
+    // ========================================
+
+    // Desconsideramos o último ponto,
+    // pois ele repete o primeiro.
+
     const uniquePoints = new Set(
       points
         .slice(0, -1)
-        .map(([longitude, latitude]) =>
-          `${longitude},${latitude}`,
+        .map(
+          ([longitude, latitude]) =>
+            `${longitude},${latitude}`,
         ),
     );
 
@@ -126,13 +141,23 @@ if (
     }
   });
 
-// Inicialmente permitiremos apenas um anel externo.
-// Não trabalharemos com polígonos contendo buracos.
+// ============================================
+// POLÍGONO GEOJSON
+// ============================================
+
+// Inicialmente permitiremos apenas um anel
+// externo por área.
+//
+// Não trabalharemos com polígonos
+// contendo buracos.
+
 export const deliveryPolygonSchema = z
   .object({
     type: z.literal("Polygon"),
 
-    coordinates: z.tuple([polygonRingSchema]),
+    coordinates: z.tuple([
+      polygonRingSchema,
+    ]),
   })
   .strict();
 
@@ -146,7 +171,10 @@ export const createDeliveryZoneSchema = z
       .string()
       .trim()
       .min(3, "Informe o nome da área.")
-      .max(100, "O nome deve ter no máximo 100 caracteres.")
+      .max(
+        100,
+        "O nome deve ter no máximo 100 caracteres.",
+      )
       .default("Zona urbana de Rebouças"),
 
     polygon: deliveryPolygonSchema,
@@ -164,8 +192,11 @@ export const updateDeliveryZoneSchema = z
     name: z
       .string()
       .trim()
-      .min(3)
-      .max(100)
+      .min(3, "Informe o nome da área.")
+      .max(
+        100,
+        "O nome deve ter no máximo 100 caracteres.",
+      )
       .optional(),
 
     polygon: deliveryPolygonSchema.optional(),
@@ -182,11 +213,26 @@ export const updateDeliveryZoneSchema = z
 // VALIDAÇÃO DE LOCALIZAÇÃO DO CLIENTE
 // ============================================
 
+// Recebe coordenadas do endereço
+// selecionado pelo cliente.
+//
+// O backend utilizará essas coordenadas
+// para verificar se estão dentro de
+// alguma área de entrega ativa.
+
 export const validateDeliveryLocationSchema = z
   .object({
-    latitude: z.number().finite().min(-90).max(90),
+    latitude: z
+      .number()
+      .finite()
+      .min(-90)
+      .max(90),
 
-    longitude: z.number().finite().min(-180).max(180),
+    longitude: z
+      .number()
+      .finite()
+      .min(-180)
+      .max(180),
   })
   .strict();
 
