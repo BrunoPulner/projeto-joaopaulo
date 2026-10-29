@@ -1,6 +1,9 @@
 
 import { useEffect, useState } from "react";
 
+import { useSession } from "../../../lib/auth-client";
+import { checkDeliveryAvailability } from "../delivery/api/deliveryAvailabilityApi";
+
 import {
   AlertCircle,
   ArrowRight,
@@ -31,6 +34,7 @@ import { resolveCatalogImageUrl } from "../../catalog/api/catalog.api";
 import { DeliveryAddressSheet } from "./DeliveryAddressSheet";
 
 import type {
+  DeliveryAddress,
   ValidatedDeliveryAddress,
 } from "../delivery/deliveryAddress.types";
 
@@ -83,6 +87,67 @@ function getStockLimit(
 }
 
 // ============================================
+// PERFIL LOCAL DO CLIENTE
+// ============================================
+
+type StoredCustomerProfile = {
+  address?: unknown;
+  [key: string]: unknown;
+};
+
+function readCustomerAddress(userId: string): DeliveryAddress | null {
+  try {
+    const raw = localStorage.getItem(`customer-profile-demo:${userId}`);
+    if (!raw) return null;
+
+    const profile = JSON.parse(raw) as StoredCustomerProfile;
+    const address = profile.address as Partial<DeliveryAddress> | undefined;
+    const coords = address?.coordinates;
+
+    if (
+      !address?.street?.trim() ||
+      !address.number?.trim() ||
+      !address.neighborhood?.trim() ||
+      address.city !== "Rebouças" ||
+      address.state !== "PR" ||
+      !coords ||
+      !Number.isFinite(coords.latitude) ||
+      !Number.isFinite(coords.longitude) ||
+      Math.abs(coords.latitude) > 90 ||
+      Math.abs(coords.longitude) > 180
+    ) {
+      return null;
+    }
+
+    return {
+      street: address.street,
+      number: address.number,
+      neighborhood: address.neighborhood,
+      complement: address.complement ?? "",
+      city: "Rebouças",
+      state: "PR",
+      coordinates: {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveCustomerAddress(userId: string, address: DeliveryAddress): void {
+  try {
+    const key = `customer-profile-demo:${userId}`;
+    const raw = localStorage.getItem(key);
+    const profile = raw ? (JSON.parse(raw) as StoredCustomerProfile) : {};
+    localStorage.setItem(key, JSON.stringify({ ...profile, address }));
+  } catch {
+    // Falha de armazenamento não apaga o endereço selecionado na sacola.
+  }
+}
+
+// ============================================
 // DRAWER PRINCIPAL
 // ============================================
 
@@ -94,6 +159,9 @@ export function CartDrawer({
   onDecrease,
   onRemove,
 }: CartDrawerProps) {
+  const { data: session, isPending: sessionPending } = useSession();
+  const userId = session?.user?.id ?? null;
+
   // ==========================================
   // MODALIDADE DE RECEBIMENTO
   // ==========================================
@@ -113,6 +181,97 @@ export function CartDrawer({
 
   const [deliveryNeedsRevalidation, setDeliveryNeedsRevalidation] =
     useState(false);
+
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [addressError, setAddressError] = useState<string | null>(null);
+
+  // Carrega o endereço do perfil quando a sacola abre ou a conta muda.
+  // A consulta ao servidor é obrigatória: coordenadas salvas não garantem frete.
+  
+useEffect(() => {
+  if (!open || sessionPending) return;
+
+  let active = true;
+  const controller = new AbortController();
+
+  const loadSavedAddress = async () => {
+    const saved = userId
+      ? readCustomerAddress(userId)
+      : null;
+
+    // Evita atualizar o estado após o fechamento
+    // ou desmontagem do componente.
+    if (!active) return;
+
+    // Sem usuário autenticado.
+    if (!userId) {
+      setDeliveryAddress(null);
+      setDeliveryNeedsRevalidation(false);
+      setAddressLoading(false);
+      setAddressError(null);
+      return;
+    }
+
+    // Limpa os dados anteriores.
+    setDeliveryAddress(null);
+    setDeliveryNeedsRevalidation(false);
+    setAddressError(null);
+
+    // Cliente ainda não possui endereço.
+    if (!saved) {
+      setAddressLoading(false);
+      return;
+    }
+
+    setAddressLoading(true);
+
+    try {
+      // Consulta o frete com as coordenadas
+      // cadastradas no perfil.
+      const availability =
+        await checkDeliveryAvailability(
+          saved.coordinates,
+          controller.signal,
+        );
+
+      if (!active || controller.signal.aborted) {
+        return;
+      }
+
+      setDeliveryAddress({
+        address: saved,
+        availability,
+        source: "ADDRESS_SEARCH",
+      });
+
+      setDeliveryNeedsRevalidation(false);
+    } catch (error) {
+      if (!active || controller.signal.aborted) {
+        return;
+      }
+
+      setDeliveryAddress(null);
+
+      setAddressError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível verificar o endereço salvo.",
+      );
+    } finally {
+      if (active && !controller.signal.aborted) {
+        setAddressLoading(false);
+      }
+    }
+  };
+
+  void loadSavedAddress();
+
+  return () => {
+    active = false;
+    controller.abort();
+  };
+}, [open, userId, sessionPending]);
+
 
   // ==========================================
   // FECHAR COM ESCAPE
@@ -186,6 +345,8 @@ export function CartDrawer({
     setDeliveryAddress(result);
     setDeliveryNeedsRevalidation(false);
     setShowAddressSelector(false);
+    setAddressError(null);
+    if (userId) saveCustomerAddress(userId, result.address);
   }
 
   // ==========================================
@@ -200,22 +361,30 @@ export function CartDrawer({
   // MODALIDADE DE RECEBIMENTO
   // ==========================================
 
-  function handleFulfillmentChange(
-    type: FulfillmentType,
-  ) {
-    if (type === "DELIVERY") {
-      setFulfillmentType("DELIVERY");
-      if (!deliveryAddress || deliveryNeedsRevalidation) {
-        setShowAddressSelector(true);
-      }
-      return;
-    }
+  
+function handleFulfillmentChange(
+  type: FulfillmentType,
+) {
+  if (type === fulfillmentType) return;
 
-    setFulfillmentType("PICKUP");
+  setFulfillmentType(type);
+
+  if (type === "PICKUP") {
+    // Fecha o seletor, caso esteja aberto.
     setShowAddressSelector(false);
-    // Ao voltar à entrega, será necessária nova validação.
-    setDeliveryNeedsRevalidation(true);
+
+    // Mantém o endereço e a validação do frete.
+    // Retirada não precisa de endereço de entrega.
+    return;
   }
+
+  // Ao voltar para entrega:
+  // - Reutiliza o endereço confirmado.
+  // - Mantém a disponibilidade consultada.
+  // - Preserva a taxa de entrega calculada.
+  // - Não abre o Google Maps novamente.
+}
+
 
   // ==========================================
   // CANCELAR SELEÇÃO DE ENDEREÇO
@@ -450,6 +619,18 @@ export function CartDrawer({
                   )}
                 </div>
 
+                {addressLoading && (
+                  <p role="status" className="mt-3 text-xs font-semibold text-sky-700">
+                    Verificando o endereço cadastrado e calculando o frete...
+                  </p>
+                )}
+
+                {addressError && (
+                  <p role="alert" className="mt-3 text-xs text-red-700">
+                    {addressError}
+                  </p>
+                )}
+
                 {deliveryAddress ? (
                   <div className="mt-2 space-y-1.5">
                     <p className="text-sm font-bold text-stone-800">
@@ -522,7 +703,7 @@ export function CartDrawer({
                       className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-700 transition hover:bg-orange-100"
                     >
                       <MapPin size={17} />
-                      Adicionar endereço
+                      {userId ? "Configurar meu endereço" : "Adicionar endereço"}
                     </button>
                   </div>
                 )}
@@ -629,7 +810,7 @@ export function CartDrawer({
 
       <DeliveryAddressSheet
         open={open && isDelivery && showAddressSelector}
-        initialAddress={deliveryAddress?.address ?? null}
+        initialAddress={deliveryAddress?.address ?? (userId ? readCustomerAddress(userId) : null)}
         onClose={handleCancelAddressSelection}
         onConfirm={handleAddressConfirmed}
       />

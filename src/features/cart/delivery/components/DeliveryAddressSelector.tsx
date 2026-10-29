@@ -238,23 +238,36 @@ useEffect(() => {
   // ATUALIZAR FORMULÁRIO
   // ============================================
 
-  function updateField(
-    field: keyof DeliveryAddressForm,
-    value: string,
-  ) {
-    invalidateAvailability();
+  
+function updateField(
+  field: keyof DeliveryAddressForm,
+  value: string,
+) {
+  const isComplement = field === "complement";
 
-    setForm((previous) => ({
-      ...previous,
-      [field]: value,
-    }));
+  setForm((previous) => ({
+    ...previous,
+    [field]: value,
+  }));
 
-    setError(null);
+  setError(null);
 
-    if (step !== "form") {
-      setStep("form");
-    }
+  // Complemento não altera a posição geográfica.
+  if (isComplement) {
+    return;
   }
+
+  // Rua, número e bairro exigem nova localização.
+  invalidateAvailability();
+
+  setCoordinates(null);
+  setAccuracyMeters(null);
+
+  if (step !== "form") {
+    setStep("form");
+  }
+}
+
 
   // ============================================
   // GEOCODIFICAR ENDEREÇO

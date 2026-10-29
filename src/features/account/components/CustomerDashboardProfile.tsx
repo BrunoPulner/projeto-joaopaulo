@@ -1,631 +1,1061 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { useSession } from "../../../../src/lib/auth-client";
+
 import {
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
+
+import { useSession } from "../../../lib/auth-client";
+
+import {
+  Camera,
+  Check,
   CheckCircle2,
+  ChevronRight,
+  ImagePlus,
   MapPin,
+  MessageCircle,
   Navigation,
   Phone,
   Save,
+  Settings2,
   ShieldCheck,
+  Smartphone,
   UserRound,
+  X,
 } from "lucide-react";
+
+import { DeliveryAddressSheet } from "../../cart/components/DeliveryAddressSheet";
+
+import type {
+  DeliveryAddress,
+  ValidatedDeliveryAddress,
+} from "../../cart/delivery/deliveryAddress.types";
+
+// ============================================
+// TIPOS
+// ============================================
+
+type ProfileTab = "profile" | "phone" | "address";
+
 type CustomerProfile = {
   name: string;
-  cpf: string;
-  email: string;
+  photo: string;
   phone: string;
   phoneVerified: boolean;
-  zipCode: string;
-  street: string;
-  number: string;
-  complement: string;
-  neighborhood: string;
-  city: string;
-  state: string;
-  reference: string;
-  deliveryNotes: string;
-  latitude: string;
-  longitude: string;
+  address: DeliveryAddress | null;
 };
-const emptyProfile: CustomerProfile = {
-  name: "",
-  cpf: "",
-  email: "",
-  phone: "",
-  phoneVerified: false,
-  zipCode: "",
-  street: "",
-  number: "",
-  complement: "",
-  neighborhood: "",
-  city: "",
-  state: "",
-  reference: "",
-  deliveryNotes: "",
-  latitude: "",
-  longitude: "",
+
+type LegacyProfile = {
+  name?: string;
+  phone?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  complement?: string;
+  reference?: string;
+  latitude?: string;
+  longitude?: string;
 };
+
+type ProfileContentProps = {
+  userId: string;
+  googleName: string;
+  googleImage: string;
+};
+
+// ============================================
+// ESTILOS
+// ============================================
+
 const inputClass =
-  "min-h-12 w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-orange-700 focus:ring-2 focus:ring-orange-700/10";
-const labelClass = "mb-2 block text-sm font-semibold text-stone-700";
+  "min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10";
+
+const labelClass =
+  "mb-2 block text-sm font-semibold text-slate-700";
+
+// ============================================
+// FUNÇÕES AUXILIARES
+// ============================================
+
 function digits(value: string) {
   return value.replace(/\D/g, "");
 }
-function formatCpf(value: string) {
-  return digits(value)
-    .slice(0, 11)
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-}
+
 function formatPhone(value: string) {
   const number = digits(value).slice(0, 11);
+
   if (number.length <= 2) return number;
-  return number
-    .replace(/^(\d{2})(\d)/, "($1) $2")
-    .replace(/(\d{5})(\d{1,4})$/, "$1-$2");
+
+  if (number.length <= 7) {
+    return number.replace(/^(\d{2})(\d)/, "($1) $2");
+  }
+
+  return number.replace(
+    /^(\d{2})(\d{5})(\d{1,4})$/,
+    "($1) $2-$3",
+  );
 }
-function formatZipCode(value: string) {
-  return digits(value)
-    .slice(0, 8)
-    .replace(/(\d{5})(\d)/, "$1-$2");
+
+function restoreAddress(
+  value: unknown,
+): DeliveryAddress | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const data = value as Partial<DeliveryAddress>;
+  const coords = data.coordinates;
+
+  if (
+    !data.street ||
+    !data.number ||
+    !data.neighborhood ||
+    !coords ||
+    !Number.isFinite(coords.latitude) ||
+    !Number.isFinite(coords.longitude)
+  ) {
+    return null;
+  }
+
+  return {
+    street: data.street,
+    number: data.number,
+    neighborhood: data.neighborhood,
+    complement: data.complement ?? "",
+    city: "Rebouças",
+    state: "PR",
+    coordinates: {
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+    },
+  };
 }
+
+function migrateLegacyAddress(
+  data: LegacyProfile,
+): DeliveryAddress | null {
+  const latitude = Number(data.latitude);
+  const longitude = Number(data.longitude);
+
+  if (
+    !data.street ||
+    !data.number ||
+    !data.neighborhood ||
+    !data.latitude ||
+    !data.longitude ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude)
+  ) {
+    return null;
+  }
+
+  return {
+    street: data.street,
+    number: data.number,
+    neighborhood: data.neighborhood,
+    complement:
+      data.complement || data.reference || "",
+    city: "Rebouças",
+    state: "PR",
+    coordinates: {
+      latitude,
+      longitude,
+    },
+  };
+}
+
+function loadCustomerProfile(
+  userId: string,
+  googleName: string,
+): CustomerProfile {
+  let saved: Partial<CustomerProfile> &
+    LegacyProfile = {};
+
+  try {
+    const raw = localStorage.getItem(
+      `customer-profile-demo:${userId}`,
+    );
+
+    if (raw) {
+      saved = JSON.parse(raw);
+    }
+  } catch {
+    // Mantém o perfil acessível.
+  }
+
+  return {
+    name: saved.name?.trim() || googleName,
+    photo:
+      typeof saved.photo === "string"
+        ? saved.photo
+        : "",
+    phone:
+      typeof saved.phone === "string"
+        ? formatPhone(saved.phone)
+        : "",
+    phoneVerified: false,
+    address:
+      restoreAddress(saved.address) ??
+      migrateLegacyAddress(saved),
+  };
+}
+
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
+
 export function CustomerDashboardProfile() {
   const { data: session } = useSession();
-  const googleUser = session?.user;
-  const userId = googleUser?.id;
-  const [profile, setProfile] = useState<CustomerProfile>({ ...emptyProfile });
+  const user = session?.user;
+
+  if (!user?.id) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-slate-600">
+        Entre na sua conta para editar seu perfil.
+      </div>
+    );
+  }
+
+  return (
+    <CustomerDashboardProfileContent
+      key={user.id}
+      userId={user.id}
+      googleName={user.name ?? ""}
+      googleImage={user.image ?? ""}
+    />
+  );
+}
+
+// ============================================
+// CONTEÚDO
+// ============================================
+
+function CustomerDashboardProfileContent({
+  userId,
+  googleName,
+  googleImage,
+}: ProfileContentProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [activeTab, setActiveTab] =
+    useState<ProfileTab>("profile");
+
+  const [profile, setProfile] =
+    useState<CustomerProfile>(() =>
+      loadCustomerProfile(userId, googleName),
+    );
+
+  const [mapOpen, setMapOpen] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
-  const [verificationCode, setVerificationCode] = useState("");
-  const [phoneMessage, setPhoneMessage] = useState("");
-  const [saveMessage, setSaveMessage] = useState("");
-  const [locationMessage, setLocationMessage] = useState("");
-  const [locating, setLocating] = useState(false);
-  useEffect(() => {
-    if (!userId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setProfile({ ...emptyProfile });
+  const [verificationCode, setVerificationCode] =
+    useState("");
+
+  const [phoneMessage, setPhoneMessage] =
+    useState("");
+  const [saveMessage, setSaveMessage] =
+    useState("");
+  const [photoMessage, setPhotoMessage] =
+    useState("");
+
+  const displayPhoto = profile.photo || googleImage;
+
+  // ==========================================
+  // FOTO
+  // ==========================================
+
+  function handlePhotoChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (
+      !["image/jpeg", "image/png", "image/webp"].includes(
+        file.type,
+      )
+    ) {
+      setPhotoMessage(
+        "Selecione uma imagem JPG, PNG ou WebP.",
+      );
+      event.target.value = "";
       return;
     }
-    let savedProfile: CustomerProfile = { ...emptyProfile };
-    try {
-      const saved = localStorage.getItem(`customer-profile-demo:${userId}`);
-      if (saved) {
-        savedProfile = { ...emptyProfile, ...JSON.parse(saved) };
-      }
-    } catch {
-      // Se o armazenamento estiver indisponível, mantém os campos vazios.
+
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoMessage(
+        "A foto deve ter no máximo 2 MB.",
+      );
+      event.target.value = "";
+      return;
     }
-    setProfile({
-      ...savedProfile,
-      name: googleUser?.name ?? "",
-      email: googleUser?.email ?? "",
-    });
-  }, [userId, googleUser?.name, googleUser?.email]);
-  function updateField<K extends keyof CustomerProfile>(
-    field: K,
-    value: CustomerProfile[K],
-  ) {
-    setProfile((current) => ({ ...current, [field]: value }));
-    setSaveMessage("");
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result !== "string") return;
+
+      setProfile((current) => ({
+        ...current,
+        photo: reader.result as string,
+      }));
+
+      setPhotoMessage(
+        "Foto selecionada. Salve para confirmar.",
+      );
+      setSaveMessage("");
+    };
+
+    reader.onerror = () => {
+      setPhotoMessage(
+        "Não foi possível carregar a imagem.",
+      );
+    };
+
+    reader.readAsDataURL(file);
+    event.target.value = "";
   }
-  function updateAddress(
-    field:
-      | "zipCode"
-      | "street"
-      | "number"
-      | "neighborhood"
-      | "city"
-      | "state",
-    value: string,
-  ) {
-    setProfile((current) => ({
-      ...current,
-      [field]: value,
-      latitude: "",
-      longitude: "",
-    }));
-    setLocationMessage("");
-    setSaveMessage("");
-  }
+
+  // ==========================================
+  // TELEFONE
+  // ==========================================
+
   function handlePhoneChange(value: string) {
     setProfile((current) => ({
       ...current,
       phone: formatPhone(value),
       phoneVerified: false,
     }));
+
     setCodeSent(false);
     setVerificationCode("");
     setPhoneMessage("");
     setSaveMessage("");
   }
+
   function sendVerificationCode() {
     if (digits(profile.phone).length !== 11) {
-      setPhoneMessage("Informe um celular com DDD e 11 dígitos.");
+      setPhoneMessage(
+        "Informe um celular com DDD e 11 dígitos.",
+      );
       return;
     }
+
     setCodeSent(true);
     setPhoneMessage(
-      "Verificação de demonstração: utilize o código 123456.",
+      "Demonstração: utilize o código 123456. Nenhuma mensagem foi enviada.",
     );
   }
+
   function verifyPhone() {
     if (verificationCode !== "123456") {
-      setPhoneMessage("Código incorreto. Para testar, utilize 123456.");
+      setPhoneMessage("Código incorreto.");
       return;
     }
-    updateField("phoneVerified", true);
+
+    setProfile((current) => ({
+      ...current,
+      phoneVerified: true,
+    }));
+
     setCodeSent(false);
     setVerificationCode("");
-    setPhoneMessage("Telefone validado nesta demonstração.");
+
+    setPhoneMessage(
+      "Número validado apenas nesta demonstração.",
+    );
+    setSaveMessage("");
   }
-  function useCurrentLocation() {
-    if (!navigator.geolocation) {
-      setLocationMessage(
-        "Seu navegador não oferece acesso à localização.",
-      );
-      return;
-    }
-    setLocating(true);
-    setLocationMessage("");
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setProfile((current) => ({
-          ...current,
-          latitude: coords.latitude.toFixed(6),
-          longitude: coords.longitude.toFixed(6),
-        }));
-        setLocating(false);
-        setSaveMessage("");
-        setLocationMessage(
-          "Localização obtida. Confira no mapa se corresponde ao endereço de entrega.",
-        );
-      },
-      () => {
-        setLocating(false);
-        setLocationMessage(
-          "Não foi possível obter sua localização. Confira a permissão do navegador.",
-        );
-      },
-      { enableHighAccuracy: true, timeout: 15000 },
+
+  // ==========================================
+  // ENDEREÇO
+  // ==========================================
+
+  function handleAddressConfirm(
+    result: ValidatedDeliveryAddress,
+  ) {
+    setProfile((current) => ({
+      ...current,
+      address: result.address,
+    }));
+
+    setMapOpen(false);
+    setSaveMessage(
+      "Localização confirmada. Salve as alterações.",
     );
   }
-  function handleSave(event: FormEvent<HTMLFormElement>) {
+
+  function handleComplementChange(value: string) {
+    setProfile((current) => {
+      if (!current.address) return current;
+
+      return {
+        ...current,
+        address: {
+          ...current.address,
+          complement: value,
+        },
+      };
+    });
+
+    setSaveMessage("");
+  }
+
+  // ==========================================
+  // SALVAR
+  // ==========================================
+
+  function handleSave(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
+
+    if (!profile.name.trim()) {
+      setSaveMessage("Informe seu nome.");
+      return;
+    }
+
     if (
-      profile.cpf &&
-      digits(profile.cpf).length !== 11
+      profile.phone &&
+      digits(profile.phone).length !== 11
     ) {
-      setSaveMessage("Confira o CPF: ele deve ter 11 dígitos.");
+      setSaveMessage(
+        "Informe um celular válido com DDD.",
+      );
       return;
     }
-    if (digits(profile.phone).length !== 11) {
-      setSaveMessage("Confira o celular e inclua o DDD.");
-      return;
-    }
+
     try {
-      if (!userId) {
-        setSaveMessage("Sua sessão expirou. Entre novamente.");
-        return;
-      }
       localStorage.setItem(
         `customer-profile-demo:${userId}`,
-        JSON.stringify({ ...profile, name: googleUser?.name ?? "", email: googleUser?.email ?? "" }),
+        JSON.stringify({
+          ...profile,
+          name: profile.name.trim(),
+          phoneVerified: false,
+        }),
       );
-      setSaveMessage("Dados complementares salvos neste navegador.");
+
+      setSaveMessage(
+        "Alterações salvas neste navegador.",
+      );
     } catch {
       setSaveMessage(
-        "Não foi possível salvar. Confira as permissões de armazenamento do navegador.",
+        "Não foi possível salvar as alterações.",
       );
     }
   }
-  const addressQuery = [
-    profile.street,
-    profile.number,
-    profile.neighborhood,
-    profile.city,
-    profile.state,
-    profile.zipCode,
-    "Brasil",
-  ]
-    .filter(Boolean)
-    .join(", ");
-  const hasCoordinates =
-    profile.latitude !== "" && profile.longitude !== "";
-  const canOpenMap =
-    hasCoordinates || Boolean(profile.street && profile.city);
-  const mapQuery = hasCoordinates
-    ? `${profile.latitude},${profile.longitude}`
-    : addressQuery;
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    mapQuery,
-  )}`;
+
+  // ==========================================
+  // NAVEGAÇÃO
+  // ==========================================
+
+  const tabs = [
+    {
+      id: "profile" as const,
+      label: "Meu perfil",
+      description: "Nome e foto",
+      icon: UserRound,
+      active:
+        "border-indigo-300 bg-indigo-50 text-indigo-800 shadow-indigo-100",
+      iconBg: "bg-indigo-100 text-indigo-700",
+    },
+    {
+      id: "phone" as const,
+      label: "Telefone",
+      description: "WhatsApp",
+      icon: Smartphone,
+      active:
+        "border-emerald-300 bg-emerald-50 text-emerald-800 shadow-emerald-100",
+      iconBg: "bg-emerald-100 text-emerald-700",
+    },
+    {
+      id: "address" as const,
+      label: "Endereço",
+      description: "Localização",
+      icon: MapPin,
+      active:
+        "border-sky-300 bg-sky-50 text-sky-800 shadow-sky-100",
+      iconBg: "bg-sky-100 text-sky-700",
+    },
+  ];
+
   return (
-    <div className="space-y-7">
-      <section className="rounded-3xl bg-linear-to-br from-orange-700 to-orange-900 p-6 text-white shadow-lg shadow-orange-900/10 sm:p-8">
-        <span className="inline-flex items-center gap-2 text-sm font-semibold text-orange-100">
-          <UserRound size={19} aria-hidden="true" />
-          Minha conta
-        </span>
-        <h2 className="mt-3 text-2xl font-black sm:text-3xl">
-          Seu perfil, do seu jeito.
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-orange-50">
-          Mantenha seus dados e endereço atualizados para facilitar
-          seus próximos pedidos.
-        </p>
-      </section>
-      <form onSubmit={handleSave} className="space-y-6">
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
-          <div className="mb-6 flex items-start gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-700">
-              <UserRound size={22} aria-hidden="true" />
-            </span>
-            <div>
-              <h2 className="text-lg font-black text-stone-900">
-                Dados pessoais
-              </h2>
-              <p className="mt-1 text-sm text-stone-500">
-                Informações para identificar sua conta.
-              </p>
-            </div>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label htmlFor="profile-name" className={labelClass}>
-                Nome completo
-              </label>
-              <input
-                id="profile-name"
-                autoComplete="name"
-                required
-                value={profile.name}
-                readOnly
-                placeholder="Seu nome completo"
-                className={`${inputClass} cursor-not-allowed bg-stone-50 text-stone-500`}
-              />
-            </div>
-            <div>
-              <label htmlFor="profile-cpf" className={labelClass}>
-                CPF
-              </label>
-              <input
-                id="profile-cpf"
-                inputMode="numeric"
-                value={profile.cpf}
-                onChange={(event) =>
-                  updateField("cpf", formatCpf(event.target.value))
-                }
-                placeholder="000.000.000-00"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="profile-email" className={labelClass}>
-                E-mail
-              </label>
-              <input
-                id="profile-email"
-                type="email"
-                autoComplete="email"
-                value={profile.email}
-                readOnly
-                placeholder="voce@exemplo.com"
-                className={`${inputClass} cursor-not-allowed bg-stone-50 text-stone-500`}
-              />
-            </div>
-          </div>
-        </section>
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
-          <div className="mb-6 flex items-start gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-              <Phone size={21} aria-hidden="true" />
-            </span>
-            <div>
-              <h2 className="text-lg font-black text-stone-900">
-                Telefone de contato
-              </h2>
-              <p className="mt-1 text-sm text-stone-500">
-                Utilize o celular pelo qual podemos falar com você.
-              </p>
-            </div>
-          </div>
-          <label htmlFor="profile-phone" className={labelClass}>
-            Celular com DDD
-          </label>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              id="profile-phone"
-              type="tel"
-              autoComplete="tel-national"
-              required
-              value={profile.phone}
-              onChange={(event) =>
-                handlePhoneChange(event.target.value)
+    <div className="flex min-h-0 flex-col gap-4 lg:h-full lg:gap-5">
+      
+{/* =====================================
+    CABEÇALHO COMPACTO
+===================================== */}
+
+<section className="relative shrink-0 overflow-hidden rounded-2xl bg-[#20354b] px-5 py-4 text-white shadow-lg shadow-slate-900/10 sm:px-6">
+  {/* EFEITO DECORATIVO */}
+
+  <div className="pointer-events-none absolute -right-12 -top-20 size-48 rounded-full bg-sky-400/10 blur-2xl" />
+
+  <div className="relative flex items-center gap-4">
+    {/* ÍCONE */}
+
+    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sky-200">
+      <Settings2 size={21} />
+    </div>
+
+    {/* INFORMAÇÕES */}
+
+    <div className="min-w-0 flex-1">
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-sky-200">
+        Minha conta
+      </p>
+
+      <h2 className="mt-0.5 text-lg font-black leading-tight sm:text-xl">
+        Configurações do perfil
+      </h2>
+
+      <p className="mt-1 text-xs leading-relaxed text-slate-300">
+        Gerencie seus dados, telefone e endereço.
+      </p>
+    </div>
+  </div>
+</section>
+
+
+      {/* =====================================
+          ABAS
+      ===================================== */}
+
+      <nav
+        aria-label="Configurações do perfil"
+        className="grid grid-cols-3 gap-2 sm:gap-3"
+      >
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const selected = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              aria-current={
+                selected ? "page" : undefined
               }
-              placeholder="(42) 99999-9999"
-              className={inputClass}
-            />
-            {profile.phoneVerified ? (
-              <span className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 text-sm font-bold text-emerald-800">
-                <CheckCircle2 size={18} aria-hidden="true" />
-                Validado na demonstração
+              onClick={() => {
+                setActiveTab(tab.id);
+                setSaveMessage("");
+              }}
+              className={`group flex min-w-0 flex-col items-center gap-2 rounded-2xl border p-3 text-center transition-all duration-200 sm:flex-row sm:p-4 sm:text-left ${
+                selected
+                  ? `${tab.active} shadow-md`
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+              }`}
+            >
+              <span
+                className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${
+                  selected
+                    ? tab.iconBg
+                    : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                <Icon size={21} />
               </span>
-            ) : (
-              <button
-                type="button"
-                onClick={sendVerificationCode}
-                className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-700 px-5 text-sm font-bold text-white transition hover:bg-orange-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700"
-              >
-                <ShieldCheck size={18} aria-hidden="true" />
-                {codeSent ? "Reenviar código" : "Verificar telefone"}
-              </button>
-            )}
-          </div>
-          {codeSent && (
-            <div className="mt-4 rounded-xl border border-orange-100 bg-orange-50/60 p-4">
-              <label
-                htmlFor="phone-code"
-                className={labelClass}
-              >
-                Código de verificação
-              </label>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <input
-                  id="phone-code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  value={verificationCode}
-                  onChange={(event) =>
-                    setVerificationCode(
-                      digits(event.target.value).slice(0, 6),
-                    )
-                  }
-                  placeholder="6 dígitos"
-                  className={inputClass}
+
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-extrabold sm:text-sm">
+                  {tab.label}
+                </span>
+
+                <span className="mt-0.5 hidden text-xs opacity-70 sm:block">
+                  {tab.description}
+                </span>
+              </span>
+
+              {selected && (
+                <Check
+                  size={16}
+                  className="hidden shrink-0 sm:block"
                 />
-                <button
-                  type="button"
-                  onClick={verifyPhone}
-                  className="min-h-12 shrink-0 rounded-xl bg-stone-900 px-5 text-sm font-bold text-white hover:bg-stone-800"
-                >
-                  Confirmar código
-                </button>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* =====================================
+          FORMULÁRIO
+      ===================================== */}
+
+      <form
+  onSubmit={handleSave}
+  className="flex min-h-0 flex-1 flex-col gap-3"
+>
+        {/* ===================================
+            ABA PERFIL
+        =================================== */}
+
+        {activeTab === "profile" && (
+          <section className="overflow-hidden rounded-3xl border border-indigo-100 bg-white shadow-sm">
+            <div className="border-b border-indigo-100 bg-indigo-50/60 px-5 py-5 sm:px-7">
+              <div className="flex items-center gap-3">
+                <span className="flex size-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+                  <UserRound size={22} />
+                </span>
+
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">
+                    Dados pessoais
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Sua identidade dentro do restaurante.
+                  </p>
+                </div>
               </div>
             </div>
-          )}
-          <p
-            role="status"
-            aria-live="polite"
-            className="mt-3 text-sm text-stone-600"
-          >
-            {phoneMessage}
-          </p>
-        </section>
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-7">
-          <div className="mb-6 flex items-start gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
-              <MapPin size={22} aria-hidden="true" />
-            </span>
-            <div>
-              <h2 className="text-lg font-black text-stone-900">
-                Endereço de entrega
-              </h2>
-              <p className="mt-1 text-sm text-stone-500">
-                Cadastre o endereço que deseja usar nos seus pedidos.
+
+            <div className="space-y-7 p-5 sm:p-7">
+              {/* FOTO */}
+
+              <div className="flex flex-col items-center gap-5 rounded-2xl bg-slate-50 p-5 sm:flex-row">
+                <div className="relative shrink-0">
+                  <div className="flex size-28 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-indigo-100 text-indigo-700 shadow-md">
+                    {displayPhoto ? (
+                      <img
+                        src={displayPhoto}
+                        alt="Foto do perfil"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <UserRound size={46} />
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      fileInputRef.current?.click()
+                    }
+                    aria-label="Alterar foto"
+                    className="absolute bottom-0 right-0 flex size-9 items-center justify-center rounded-full border-2 border-white bg-indigo-600 text-white shadow-md transition hover:bg-indigo-700"
+                  >
+                    <Camera size={17} />
+                  </button>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handlePhotoChange}
+                    className="hidden"
+                    aria-label="Selecionar foto"
+                  />
+                </div>
+
+                <div className="flex-1 text-center sm:text-left">
+                  <h4 className="font-black text-slate-900">
+                    Sua foto de perfil
+                  </h4>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Utilizamos sua foto do Google
+                    até você escolher outra.
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        fileInputRef.current?.click()
+                      }
+                      className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700"
+                    >
+                      <ImagePlus size={16} />
+                      Alterar foto
+                    </button>
+
+                    {profile.photo && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfile((current) => ({
+                            ...current,
+                            photo: "",
+                          }));
+                          setPhotoMessage("");
+                          setSaveMessage("");
+                        }}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                      >
+                        <X size={15} />
+                        Usar foto Google
+                      </button>
+                    )}
+                  </div>
+
+                  <p
+                    role="status"
+                    className="mt-3 text-xs text-slate-400"
+                  >
+                    {photoMessage ||
+                      "JPG, PNG ou WebP. Máximo de 2 MB."}
+                  </p>
+                </div>
+              </div>
+
+              {/* NOME */}
+
+              <div className="max-w-xl">
+                <label
+                  htmlFor="profile-name"
+                  className={labelClass}
+                >
+                  Nome completo
+                </label>
+
+                <input
+                  id="profile-name"
+                  required
+                  maxLength={120}
+                  autoComplete="name"
+                  value={profile.name}
+                  onChange={(event) => {
+                    setProfile((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }));
+                    setSaveMessage("");
+                  }}
+                  placeholder="Seu nome completo"
+                  className={inputClass}
+                />
+
+                <p className="mt-2 text-xs text-slate-400">
+                  Este nome será utilizado para
+                  identificar seus pedidos.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ===================================
+            ABA TELEFONE
+        =================================== */}
+
+        {activeTab === "phone" && (
+          <section className="overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm">
+            <div className="border-b border-emerald-100 bg-emerald-50/70 px-5 py-5 sm:px-7">
+              <div className="flex items-center gap-3">
+                <span className="flex size-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                  <Phone size={22} />
+                </span>
+
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">
+                    Telefone e WhatsApp
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Receba atualizações sobre seus pedidos.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6 p-5 sm:p-7">
+              <div className="max-w-2xl">
+                <label
+                  htmlFor="profile-phone"
+                  className={labelClass}
+                >
+                  Número de celular com DDD
+                </label>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    id="profile-phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
+                    value={profile.phone}
+                    onChange={(event) =>
+                      handlePhoneChange(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="(42) 99999-9999"
+                    className={inputClass}
+                  />
+
+                  {profile.phoneVerified ? (
+                    <span className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-100 px-4 text-sm font-bold text-emerald-800">
+                      <CheckCircle2 size={18} />
+                      Validado (demo)
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={sendVerificationCode}
+                      className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700"
+                    >
+                      <ShieldCheck size={18} />
+                      {codeSent
+                        ? "Reenviar código"
+                        : "Verificar"}
+                    </button>
+                  )}
+                </div>
+
+                {codeSent && (
+                  <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
+                    <label
+                      htmlFor="phone-code"
+                      className={labelClass}
+                    >
+                      Código de verificação
+                    </label>
+
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        id="phone-code"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={verificationCode}
+                        onChange={(event) =>
+                          setVerificationCode(
+                            digits(
+                              event.target.value,
+                            ).slice(0, 6),
+                          )
+                        }
+                        placeholder="6 dígitos"
+                        className={inputClass}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={verifyPhone}
+                        className="min-h-12 rounded-xl bg-slate-800 px-5 text-sm font-bold text-white hover:bg-slate-900"
+                      >
+                        Confirmar código
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {phoneMessage && (
+                  <p
+                    role="status"
+                    className="mt-3 text-sm text-emerald-800"
+                  >
+                    {phoneMessage}
+                  </p>
+                )}
+              </div>
+
+              {/* INFORMAÇÕES WHATSAPP */}
+
+              <div className="rounded-2xl border border-emerald-100 bg-linear-to-br from-emerald-50 to-teal-50 p-5">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                    <MessageCircle size={23} />
+                  </span>
+
+                  <div>
+                    <h4 className="font-black text-emerald-950">
+                      Acompanhe seu pedido pelo WhatsApp
+                    </h4>
+
+                    <p className="mt-2 text-sm leading-relaxed text-emerald-900/75">
+                      Este número será utilizado para
+                      receber notificações automáticas
+                      do Espetinhos João Paulo quando
+                      seu pedido for confirmado,
+                      estiver em preparo, ficar pronto
+                      ou sair para entrega, após a
+                      ativação desse serviço.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-400">
+                A verificação por código ainda está
+                em modo de demonstração. Nenhuma
+                mensagem real é enviada nesta etapa.
               </p>
             </div>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <label htmlFor="profile-zip" className={labelClass}>
-                CEP
-              </label>
-              <input
-                id="profile-zip"
-                autoComplete="postal-code"
-                inputMode="numeric"
-                value={profile.zipCode}
-                onChange={(event) =>
-                  updateAddress(
-                    "zipCode",
-                    formatZipCode(event.target.value),
-                  )
-                }
-                placeholder="00000-000"
-                className={inputClass}
-              />
+          </section>
+        )}
+
+        {/* ===================================
+            ABA ENDEREÇO
+        =================================== */}
+
+        {activeTab === "address" && (
+          <section className="overflow-hidden rounded-3xl border border-sky-100 bg-white shadow-sm">
+            <div className="border-b border-sky-100 bg-sky-50/70 px-5 py-5 sm:px-7">
+              <div className="flex items-center gap-3">
+                <span className="flex size-11 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
+                  <MapPin size={22} />
+                </span>
+
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">
+                    Meu endereço
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Gerencie seu endereço de entrega.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div>
-              <label htmlFor="profile-neighborhood" className={labelClass}>
-                Bairro
-              </label>
-              <input
-                id="profile-neighborhood"
-                value={profile.neighborhood}
-                onChange={(event) =>
-                  updateAddress("neighborhood", event.target.value)
-                }
-                placeholder="Seu bairro"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="profile-street" className={labelClass}>
-                Rua ou avenida
-              </label>
-              <input
-                id="profile-street"
-                autoComplete="address-line1"
-                value={profile.street}
-                onChange={(event) =>
-                  updateAddress("street", event.target.value)
-                }
-                placeholder="Nome da rua"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="profile-number" className={labelClass}>
-                Número
-              </label>
-              <input
-                id="profile-number"
-                value={profile.number}
-                onChange={(event) =>
-                  updateAddress("number", event.target.value)
-                }
-                placeholder="Número ou S/N"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="profile-city" className={labelClass}>
-                Cidade
-              </label>
-              <input
-                id="profile-city"
-                autoComplete="address-level2"
-                value={profile.city}
-                onChange={(event) =>
-                  updateAddress("city", event.target.value)
-                }
-                placeholder="Sua cidade"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="profile-state" className={labelClass}>
-                Estado
-              </label>
-              <input
-                id="profile-state"
-                autoComplete="address-level1"
-                maxLength={2}
-                value={profile.state}
-                onChange={(event) =>
-                  updateAddress(
-                    "state",
-                    event.target.value
-                      .replace(/[^a-z]/gi, "")
-                      .toUpperCase(),
-                  )
-                }
-                placeholder="PR"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="profile-complement" className={labelClass}>
-                Complemento
-              </label>
-              <input
-                id="profile-complement"
-                autoComplete="address-line2"
-                value={profile.complement}
-                onChange={(event) =>
-                  updateField("complement", event.target.value)
-                }
-                placeholder="Apartamento, bloco, casa..."
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="profile-reference" className={labelClass}>
-                Ponto de referência
-              </label>
-              <input
-                id="profile-reference"
-                value={profile.reference}
-                onChange={(event) =>
-                  updateField("reference", event.target.value)
-                }
-                placeholder="Próximo a..."
-                className={inputClass}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label htmlFor="profile-notes" className={labelClass}>
-                Orientações para a entrega
-              </label>
-              <textarea
-                id="profile-notes"
-                rows={3}
-                value={profile.deliveryNotes}
-                onChange={(event) =>
-                  updateField("deliveryNotes", event.target.value)
-                }
-                placeholder="Ex.: tocar o interfone ou chamar no portão."
-                className={`${inputClass} resize-y`}
-              />
-            </div>
-          </div>
-          <div className="mt-6 rounded-2xl border border-sky-100 bg-sky-50/50 p-5">
-            <h3 className="font-bold text-stone-900">
-              Localização no mapa
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-stone-600">
-              Use sua localização atual quando estiver no endereço de
-              entrega. Você também pode conferir o endereço preenchido
-              no Google Maps.
-            </p>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <button
-                type="button"
-                onClick={useCurrentLocation}
-                disabled={locating}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-sky-800 disabled:cursor-wait disabled:opacity-60"
-              >
-                <Navigation size={17} aria-hidden="true" />
-                {locating
-                  ? "Obtendo localização..."
-                  : "Usar localização atual"}
-              </button>
-              {canOpenMap && (
-                <a
-                  href={mapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-sky-200 bg-white px-4 py-2.5 text-sm font-bold text-sky-800 hover:bg-sky-50"
-                >
-                  <MapPin size={17} aria-hidden="true" />
-                  Conferir no Google Maps
-                </a>
+
+            <div className="space-y-5 p-5 sm:p-7">
+              {profile.address ? (
+                <>
+                  {/* ENDEREÇO CADASTRADO */}
+
+                  <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-5">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2
+                        size={19}
+                        className="text-emerald-600"
+                      />
+
+                      <span className="text-sm font-bold text-emerald-800">
+                        Localização confirmada
+                      </span>
+                    </div>
+
+                    <h4 className="mt-4 text-lg font-black text-slate-900">
+                      {profile.address.street},{" "}
+                      {profile.address.number}
+                    </h4>
+
+                    <p className="mt-1 text-sm text-slate-600">
+                      {profile.address.neighborhood}
+                      {" — "}
+                      Rebouças, PR
+                    </p>
+
+                    <div className="mt-4 flex items-center gap-2 text-xs text-sky-700">
+                      <Navigation size={15} />
+                      Pino registrado no Google Maps
+                    </div>
+                  </div>
+
+                  {/* COMPLEMENTO */}
+
+                  <div>
+                    <label
+                      htmlFor="profile-complement"
+                      className={labelClass}
+                    >
+                      Complemento ou ponto de referência
+                      <span className="ml-1 font-normal text-slate-400">
+                        (opcional)
+                      </span>
+                    </label>
+
+                    <input
+                      id="profile-complement"
+                      value={
+                        profile.address.complement
+                      }
+                      onChange={(event) =>
+                        handleComplementChange(
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Ex.: Casa azul, próximo ao mercado"
+                      className={inputClass}
+                    />
+
+                    <p className="mt-2 text-xs text-slate-500">
+                      Alterar este campo não modifica
+                      a localização do pino.
+                    </p>
+                  </div>
+
+                  {/* ALTERAR LOCALIZAÇÃO */}
+
+                  <button
+                    type="button"
+                    onClick={() => setMapOpen(true)}
+                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-sky-700 sm:w-auto"
+                  >
+                    <MapPin size={18} />
+                    Ver ou alterar localização
+                    <ChevronRight size={17} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/50 p-7 text-center">
+                    <span className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
+                      <MapPin size={29} />
+                    </span>
+
+                    <h4 className="mt-4 font-black text-slate-900">
+                      Cadastre seu endereço
+                    </h4>
+
+                    <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
+                      Informe rua, número, bairro e
+                      complemento e confirme no mapa
+                      onde devemos entregar.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setMapOpen(true)}
+                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-sky-700 sm:w-auto"
+                  >
+                    <MapPin size={18} />
+                    Cadastrar endereço no mapa
+                    <ChevronRight size={17} />
+                  </button>
+                </>
               )}
             </div>
-            {hasCoordinates && (
-              <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-emerald-800">
-                <CheckCircle2 size={17} aria-hidden="true" />
-                Localização vinculada ao endereço
-              </p>
-            )}
-            <p
-              role="status"
-              aria-live="polite"
-              className="mt-3 text-sm text-stone-600"
-            >
-              {locationMessage}
-            </p>
-          </div>
-        </section>
-        <div className="flex flex-col gap-4 rounded-2xl border border-orange-100 bg-orange-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+          </section>
+        )}
+
+        {/* ===================================
+            BOTÃO SALVAR
+        =================================== */}
+
+        <div className="mt-auto flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <p
             role="status"
             aria-live="polite"
-            className="text-sm font-medium text-stone-700"
+            className="text-sm font-medium text-slate-600"
           >
-            {saveMessage || "Salve suas alterações antes de sair desta tela."}
+            {saveMessage ||
+              "Salve suas alterações antes de sair."}
           </p>
+
           <button
             type="submit"
-            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-orange-700 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700"
+            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#20354b] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#304d6a]"
           >
-            <Save size={18} aria-hidden="true" />
+            <Save size={18} />
             Salvar alterações
           </button>
         </div>
       </form>
+
+      {/* =====================================
+          GOOGLE MAPS
+      ===================================== */}
+
+      <DeliveryAddressSheet
+        open={mapOpen}
+        initialAddress={profile.address}
+        onClose={() => setMapOpen(false)}
+        onConfirm={handleAddressConfirm}
+      />
     </div>
   );
 }
