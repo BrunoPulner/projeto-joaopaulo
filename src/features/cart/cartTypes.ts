@@ -3,6 +3,8 @@ import type { Product } from "../catalog/catalogData";
 
 import type { CatalogProduct } from "../catalog/types/catalog.types";
 
+import type { RemovedIngredient } from "../catalog/api/product-ingredients.api";
+
 // ============================================
 // TIPOS DE PRODUTOS
 // ============================================
@@ -83,6 +85,8 @@ export type CartItem = {
 
   // Configuração exclusiva de pizza
   pizza?: CartPizzaConfiguration;
+
+  removedIngredients?: RemovedIngredient[];
 };
 
 // ============================================
@@ -103,6 +107,8 @@ export type AddCartItemInput = {
   addons?: CartAddon[];
 
   pizza?: CartPizzaConfiguration;
+
+  removedIngredients?: RemovedIngredient[];
 };
 
 // ============================================

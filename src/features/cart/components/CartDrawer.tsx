@@ -1055,6 +1055,44 @@ function CartProduct({
           </div>
         )}
 
+        
+{/* =====================================
+    INGREDIENTES REMOVIDOS
+===================================== */}
+
+{item.removedIngredients &&
+  item.removedIngredients.length > 0 && (
+    <div className="mx-3 mb-3 rounded-xl border border-red-100 bg-red-50 p-3">
+      <div className="flex items-center gap-2">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-100 text-red-700">
+          <X size={15} aria-hidden="true" />
+        </span>
+
+        <div>
+          <p className="text-xs font-black text-red-800">
+            Ingredientes removidos
+          </p>
+
+          <p className="mt-0.5 text-[11px] text-red-600">
+            Preparar sem os ingredientes abaixo
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {item.removedIngredients.map((ingredient) => (
+          <span
+            key={ingredient.id}
+            className="rounded-full border border-red-200 bg-white px-2.5 py-1 text-xs font-semibold text-red-700"
+          >
+            Sem {ingredient.name}
+          </span>
+        ))}
+      </div>
+    </div>
+  )}
+
+
       {/* =====================================
           OBSERVAÇÕES
       ===================================== */}

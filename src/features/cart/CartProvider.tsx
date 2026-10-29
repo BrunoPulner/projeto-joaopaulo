@@ -55,6 +55,17 @@ function getAddonsSignature(
   );
 }
 
+
+function getRemovedIngredientsSignature(
+  ingredients: AddCartItemInput["removedIngredients"] = [],
+): string {
+  return JSON.stringify(
+    [...ingredients]
+      .map((ingredient) => ingredient.id)
+      .sort((a, b) => a - b),
+  );
+}
+
 // ============================================
 // IDENTIFICAÇÃO DA PIZZA
 // ============================================
@@ -92,6 +103,7 @@ function createItemId(
     type = "PRODUCT",
     addons,
     pizza,
+    removedIngredients,
   } = input;
 
   const normalizedNotes = notes
@@ -103,6 +115,9 @@ function createItemId(
     notes: normalizedNotes,
     addons: getAddonsSignature(addons),
     pizza: getPizzaSignature(pizza),
+    removedIngredients: getRemovedIngredientsSignature(
+  removedIngredients,
+),
   });
 }
 
@@ -173,6 +188,7 @@ export function CartProvider({
       unitPriceCents,
       addons,
       pizza,
+      removedIngredients,
     } = input;
 
     const requestedQuantity =
@@ -235,6 +251,12 @@ export function CartProvider({
         unitPriceCents,
         addons,
         pizza,
+        removedIngredients: removedIngredients
+  ? removedIngredients.map((ingredient) => ({
+      id: ingredient.id,
+      name: ingredient.name,
+    }))
+  : [],
       };
 
       return [...current, newItem];

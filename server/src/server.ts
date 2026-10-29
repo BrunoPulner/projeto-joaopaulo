@@ -66,6 +66,7 @@ import {
 
 import { uploadsRouter } from "./modules/uploads/uploads.routes.js";
 import { productImagesRouter } from "./modules/uploads/productImages.routes.js";
+import { productIngredientsRouter } from "./modules/product-ingredients/product-ingredients.routes.js";
 
 // ============================================
 // INICIALIZAÇÃO
@@ -171,6 +172,15 @@ app.use(
 app.use(
   "/api/products",
   productsRouter,
+);
+
+// ============================================
+// INGREDIENTES DOS PRODUTOS
+// ============================================
+
+app.use(
+  "/api",
+  productIngredientsRouter,
 );
 
 // ============================================

@@ -40,6 +40,8 @@ import { useCart } from "../cart/useCart";
 
 import "../../styles/catalog.css";
 
+import type { RemovedIngredient } from "./api/product-ingredients.api";
+
 // ============================================
 // TIPOS
 // ============================================
@@ -328,22 +330,26 @@ export function CatalogPage() {
     setSelectedProduct(null);
   }
 
-  function handleAddProduct(
-    product: CatalogProduct,
-    quantity: number,
-    notes: string,
-  ) {
-    addItem({
-      product,
-      quantity,
-      notes,
-      type: "PRODUCT",
-      unitPriceCents: product.priceCents,
-    });
+  
+function handleAddProduct(
+  product: CatalogProduct,
+  quantity: number,
+  notes: string,
+  removedIngredients: RemovedIngredient[] = [],
+) {
+  addItem({
+    product,
+    quantity,
+    notes,
+    type: "PRODUCT",
+    unitPriceCents: product.priceCents,
+    removedIngredients,
+  });
 
-    setSelectedProduct(null);
-    openCart();
-  }
+  setSelectedProduct(null);
+  openCart();
+}
+
 
 
   
