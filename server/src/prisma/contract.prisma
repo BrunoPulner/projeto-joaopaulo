@@ -1,617 +1,727 @@
 
-// use prisma-8
-
-// ============================================
-// TIPOS DE PRECIFICAÇÃO
-// ============================================
-
-enum ProductPricingType {
-  // Produto com preço fixo
-  FIXED
-
-  // Pizza com preço base + sabores + adicionais
-  PIZZA_CUSTOM
-}
-
-
-enum PizzaFlavorType {
-  SAVORY
-  SWEET
-}
-
-
-
-// ============================================
-// CATEGORIAS DO CARDÁPIO
-// ============================================
-
-model Category {
-  id          Int     @id @default(autoincrement())
-  name        String
-  slug        String  @unique
-  description String?
-  imageUrl    String?
-
-  isActive    Boolean @default(true)
-  sortOrder   Int     @default(0)
-
-  // RELAÇÕES
-  products      Product[]
-  subcategories Subcategory[]
-  addons        AddonCategory[]
-
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
-}
-
-
-// ============================================
-// SUBCATEGORIAS DO CARDÁPIO
-// ============================================
-
-model Subcategory {
-  id Int @id @default(autoincrement())
-
-  // Categoria principal
-  categoryId Int
-
-  category Category @relation(
-    fields: [categoryId],
-    references: [id]
-  )
-
-  name String
-  slug String
-
-  // Controle administrativo
-  isActive  Boolean @default(true)
-  sortOrder Int     @default(0)
-
-  // RELAÇÕES
-  products Product[]
-  pizzaFlavors PizzaFlavor[]
-  addonLinks AddonSubcategory[]
-
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
-
-  // O slug é único dentro da categoria
-  @@unique([categoryId, slug])
-
-  @@index([categoryId])
-}
-
-
-// ============================================
-// PRODUTOS DO CARDÁPIO
-// ============================================
-
-model Product {
-  id Int @id @default(autoincrement())
-
-  // ==========================================
-  // CATEGORIA PRINCIPAL
-  // ==========================================
-
-  categoryId Int
-
-  category Category @relation(
-    fields: [categoryId],
-    references: [id]
-  )
-
-  // ==========================================
-  // SUBCATEGORIA OPCIONAL
-  // ==========================================
-
-  subcategoryId Int?
-
-  subcategory Subcategory? @relation(
-    fields: [subcategoryId],
-    references: [id]
-  )
-
-  // ==========================================
-  // INFORMAÇÕES DO PRODUTO
-  // ==========================================
-
-  name        String
-  slug        String @unique
-  description String?
-  imageUrl    String?
-
-  // ==========================================
-  // PRECIFICAÇÃO
-  // ==========================================
-
-  // FIXED:
-  // Lanches, pastéis, crepes, espetinhos,
-  // bebidas e demais produtos.
-  //
-  // PIZZA_CUSTOM:
-  // Pizza com preço base, sabores e adicionais.
-  pricingType ProductPricingType @default(FIXED)
-
-  // Para FIXED: preço do produto
-  // Para PIZZA_CUSTOM: preço base da pizza
-  //
-  // Sempre armazenado em centavos
-  priceCents Int @default(0)
-
-  // ==========================================
-  // CONFIGURAÇÕES DE PIZZA
-  // ==========================================
-
-  // Quantidade de pedaços
-  // Exemplo: 8
-  //
-  // Deve permanecer null para outros produtos
-  pizzaSlices Int?
-
-  // Permite selecionar sabores
-  // Utilizado para pizzas
-  allowsFlavors Boolean @default(false)
-
-  // Máximo de sabores selecionáveis
-  // Para pizzas: até 2
-  maxFlavors Int @default(1)
-
-  // ==========================================
-  // CONFIGURAÇÕES DE ADICIONAIS
-  // ==========================================
-
-  // Define se o produto permite adicionais
-  //
-  // true:
-  // O cliente pode selecionar adicionais
-  // vinculados ao produto.
-  //
-  // false:
-  // O produto não permite adicionais.
-  allowsAddons Boolean @default(false)
-
-  
-  // ==========================================
-  // CONTROLE DE ESTOQUE
-  // ==========================================
-
-  // Controle de quantidade exclusivo para bebidas.
-  //
-  // null:
-  // Produto sem controle de estoque
-  // (pizzas, lanches, pastéis, espetinhos etc.).
-  //
-  // 0:
-  // Bebida esgotada.
-  //
-  // Maior que 0:
-  // Quantidade de unidades disponíveis.
-  stockQuantity Int?
-
-  // ==========================================
-  // CONTROLE ADMINISTRATIVO
-  // ==========================================
-
-  isActive    Boolean @default(true)
-  isAvailable Boolean @default(true)
-  isFeatured  Boolean @default(false)
-
-  sortOrder Int @default(0)
-
-
-  // ==========================================
-  // RELAÇÕES
-  // ==========================================
-
-  // Sabores disponíveis para este produto
-  flavors ProductFlavor[]
-
-  // Adicionais permitidos para este produto
-  addons ProductAddon[]
-
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
-
-  @@index([categoryId])
-  @@index([subcategoryId])
-  @@index([pricingType])
-}
-
-// ============================================
-// SABORES DOS PRODUTOS
-// ============================================
-
-model ProductFlavor {
-  id Int @id @default(autoincrement())
-
-  // Produto ao qual o sabor pertence
-  productId Int
-
-  product Product @relation(
-    fields: [productId],
-    references: [id]
-  )
-
-  // ==========================================
-  // INFORMAÇÕES DO SABOR
-  // ==========================================
-
-  name        String
-  description String?
-  imageUrl    String?
-
-  // Classificação do sabor:
-  // SAVORY = salgado
-  // SWEET = doce
-  flavorType PizzaFlavorType @default(SAVORY)
-
-  // ==========================================
-  // PRECIFICAÇÃO
-  // ==========================================
-
-  // Acréscimo normal do sabor em centavos
-  additionalPriceCents Int @default(0)
-
-  // Identifica sabor nobre
-  isPremium Boolean @default(false)
-
-  // Acréscimo extra para sabor nobre
-  premiumAdditionalCents Int @default(0)
-
-  // ==========================================
-  // CONTROLE ADMINISTRATIVO
-  // ==========================================
-
-  isActive  Boolean @default(true)
-  sortOrder Int     @default(0)
-
-  // ==========================================
-  // RELAÇÕES
-  // ==========================================
-
-  // Adicionais permitidos para este sabor
-  addons ProductFlavorAddon[]
-
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
-
-  @@unique([productId, name])
-
-  @@index([productId])
-  @@index([flavorType])
-}
-
-
-
-// ============================================
-// ADICIONAIS CADASTRADOS PELO ADMIN
-// ============================================
-
-model Addon {
-  id Int @id @default(autoincrement())
-
-  // ==========================================
-  // INFORMAÇÕES DO ADICIONAL
-  // ==========================================
-
-  name        String
-  description String?
-  imageUrl    String?
-
-  // Preço do adicional em centavos
-  priceCents Int
-
-  // Controle administrativo
-  isActive Boolean @default(true)
-
-  // ==========================================
-  // RELAÇÕES
-  // ==========================================
-
-  
-  // Sabores de pizza que permitem este adicional
-  flavors ProductFlavorAddon[]
-  pizzaFlavors PizzaFlavorAddon[]
-  subcategories AddonSubcategory[]
-
-  // Categorias às quais o adicional pertence
-  categories AddonCategory[]
-
-  // Produtos que permitem este adicional
-  products ProductAddon[]
-
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
-}
-
-
-// ============================================
-// ADICIONAIS PERMITIDOS POR CATEGORIA
-// ============================================
-
-
-model AddonCategory {
-  id Int @id @default(autoincrement())
-
-  // Adicional cadastrado globalmente
-  addonId Int
-
-  // Categoria que receberá o adicional
-  categoryId Int
-
-  // RELAÇÕES
-  addon Addon @relation(
-    fields: [addonId],
-    references: [id]
-  )
-
-  category Category @relation(
-    fields: [categoryId],
-    references: [id]
-  )
-
-  // CONTROLE ADMINISTRATIVO
-  // Permite desativar o vínculo sem excluir o registro.
-  isActive Boolean @default(true)
-
-  // Ordem de exibição
-  sortOrder Int @default(0)
-
-  // Um adicional só pode estar vinculado
-  // uma vez à mesma categoria.
-  @@unique([addonId, categoryId])
-
-  @@index([categoryId])
-}
-
-
-
-// ============================================
-// ADICIONAIS PERMITIDOS POR PRODUTO
-// ============================================
-
-model ProductAddon {
-  id Int @id @default(autoincrement())
-
-  // ==========================================
-  // PRODUTO
-  // ==========================================
-
-  productId Int
-
-  product Product @relation(
-    fields: [productId],
-    references: [id]
-  )
-
-  // ==========================================
-  // ADICIONAL
-  // ==========================================
-
-  addonId Int
-
-  addon Addon @relation(
-    fields: [addonId],
-    references: [id]
-  )
-
-  // ==========================================
-  // CONTROLE ADMINISTRATIVO
-  // ==========================================
-
-  // Permite desativar o adicional apenas
-  // neste produto, sem desativá-lo globalmente
-  isActive Boolean @default(true)
-
-  // Ordem de exibição no produto
-  sortOrder Int @default(0)
-
-  // ==========================================
-  // RESTRIÇÕES
-  // ==========================================
-
-  // Um adicional só pode ser vinculado
-  // uma vez ao mesmo produto
-  @@unique([productId, addonId])
-
-  @@index([productId])
-  @@index([addonId])
-}
-
-
-
-// ============================================
-// ADICIONAIS PERMITIDOS POR SABOR DE PIZZA
-// ============================================
-
-model ProductFlavorAddon {
-  id Int @id @default(autoincrement())
-
-  // ==========================================
-  // SABOR DA PIZZA
-  // ==========================================
-
-  productFlavorId Int
-
-  flavor ProductFlavor @relation(
-    fields: [productFlavorId],
-    references: [id]
-  )
-
-  // ==========================================
-  // ADICIONAL
-  // ==========================================
-
-  addonId Int
-
-  addon Addon @relation(
-    fields: [addonId],
-    references: [id]
-  )
-
-  // ==========================================
-  // CONTROLE ADMINISTRATIVO
-  // ==========================================
-
-  isActive Boolean @default(true)
-  sortOrder Int @default(0)
-
-  // ==========================================
-  // RESTRIÇÕES
-  // ==========================================
-
-  // Evita vincular o mesmo adicional
-  // duas vezes ao mesmo sabor.
-  @@unique([productFlavorId, addonId])
-
-  @@index([productFlavorId])
-  @@index([addonId])
-}
-
-// ============================================
-// CATÁLOGO DE PIZZAS (NOVO MODELO)
-// ============================================
-// Os tamanhos são compartilhados entre pizzas doces e salgadas.
-// O sabor pertence a uma subcategoria, mas o cliente pode combinar
-// até dois sabores de subcategorias diferentes no mesmo pedido.
-// A soma dos acréscimos de ambos os sabores é integral.
-
-model PizzaSize {
-  id Int @id @default(autoincrement())
-  name String
-  slug String @unique
-  description String?
-  imageUrl String?
-  slices Int
-  diameterCm Int?
-  basePriceCents Int
-  maxFlavors Int @default(2)
-  isActive Boolean @default(true)
-  isAvailable Boolean @default(true)
-  sortOrder Int @default(0)
-
-  flavorLinks PizzaFlavorSize[]
-
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
-}
-
-model PizzaFlavor {
-  id Int @id @default(autoincrement())
-  subcategoryId Int
-  subcategory Subcategory @relation(fields: [subcategoryId], references: [id])
-
-  name String
-  description String?
-  imageUrl String?
-  additionalPriceCents Int @default(0)
-  isPremium Boolean @default(false)
-  premiumAdditionalCents Int @default(0)
-
-  // true: vale para todos os tamanhos atuais e futuros.
-  // false: somente os tamanhos vinculados em PizzaFlavorSize.
-  allSizes Boolean @default(true)
-  isActive Boolean @default(true)
-  sortOrder Int @default(0)
-
-  sizeLinks PizzaFlavorSize[]
-  addons PizzaFlavorAddon[]
-
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
-
-  @@unique([subcategoryId, name])
-  @@index([subcategoryId])
-}
-
-model PizzaFlavorSize {
-  id Int @id @default(autoincrement())
-  pizzaFlavorId Int
-  pizzaSizeId Int
-  flavor PizzaFlavor @relation(fields: [pizzaFlavorId], references: [id])
-  size PizzaSize @relation(fields: [pizzaSizeId], references: [id])
-  isActive Boolean @default(true)
-
-  @@unique([pizzaFlavorId, pizzaSizeId])
-  @@index([pizzaSizeId])
-}
-
-// Adicionais por subcategoria, inclusive pizzas doces e salgadas.
-// Não substitui AddonCategory ou ProductAddon dos produtos comuns.
-model AddonSubcategory {
-  id Int @id @default(autoincrement())
-  addonId Int
-  subcategoryId Int
-  addon Addon @relation(fields: [addonId], references: [id])
-  subcategory Subcategory @relation(fields: [subcategoryId], references: [id])
-  isActive Boolean @default(true)
-  sortOrder Int @default(0)
-
-  @@unique([addonId, subcategoryId])
-  @@index([subcategoryId])
-}
-
-// Restrição ou liberação adicional específica por sabor.
-model PizzaFlavorAddon {
-  id Int @id @default(autoincrement())
-  pizzaFlavorId Int
-  addonId Int
-  flavor PizzaFlavor @relation(fields: [pizzaFlavorId], references: [id])
-  addon Addon @relation(fields: [addonId], references: [id])
-  isActive Boolean @default(true)
-  sortOrder Int @default(0)
-
-  @@unique([pizzaFlavorId, addonId])
-  @@index([addonId])
-}
-
-
+ // use prisma-8
 
  // ============================================
- // CONFIGURAÇÕES DE ENTREGA DO RESTAURANTE
+ // TIPOS DE PRECIFICAÇÃO
  // ============================================
 
-model DeliverySettings {
-  id Int @id @default(autoincrement())
+ enum ProductPricingType {
+   FIXED
+   PIZZA_CUSTOM
+ }
 
-  // Valor fixo para endereços dentro da área
-  // de entrega, sempre em centavos.
-  // 800 = R$ 8,00.
-  fixedFeeCents Int @default(800)
+ enum PizzaFlavorType {
+   SAVORY
+   SWEET
+ }
 
-  // Permite ativar ou suspender as entregas.
-  isEnabled Boolean @default(true)
+ // ============================================
+ // STATUS DOS PEDIDOS
+ // ============================================
 
-  // Telefone para consultas sobre entregas
-  // fora da área atendida.
-  contactPhone String?
+ enum OrderStatus {
+   PENDING
+   CONFIRMED
+   PREPARING
+   READY
+   OUT_FOR_DELIVERY
+   COMPLETED
+   CANCELLED
+ }
 
-  // Mensagem exibida quando o endereço
-  // estiver fora do perímetro.
-  unavailableMessage String @default("Entrega indisponível neste endereço. Entre em contato com o restaurante para consultar a possibilidade de entrega.")
+ // ============================================
+ // STATUS DO PAGAMENTO
+ // ============================================
 
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
-}
+ enum PaymentStatus {
+   NOT_PROCESSED
+   PENDING
+   PAID
+   FAILED
+   REFUNDED
+ }
 
+ // ============================================
+ // MÉTODOS DE PAGAMENTO
+ // ============================================
 
-// ============================================
-// ÁREA GEOGRÁFICA DE ENTREGA
-// ============================================
+ enum PaymentMethod {
+   UNDEFINED
+   ONLINE
+   CASH
+   CARD_ON_DELIVERY
+   PIX_ON_DELIVERY
+ }
 
-model DeliveryZone {
-  id Int @id @default(autoincrement())
+ // ============================================
+ // MODALIDADE DE RECEBIMENTO
+ // ============================================
 
-  // Nome da região configurada.
-  name String @default("Zona urbana de Rebouças")
+ enum FulfillmentType {
+   DELIVERY
+   PICKUP
+ }
 
-  // Polígono GeoJSON desenhado no Google Maps.
-  // Armazena longitude e latitude dos vértices.
-  polygon Json
+ // ============================================
+ // TIPO DE ITEM
+ // ============================================
 
-  // Permite desativar a área sem excluí-la.
-  isActive Boolean @default(true)
+ enum OrderItemType {
+   PRODUCT
+   PIZZA
+ }
 
-  createdAt TimestamptzString @default(now())
-  updatedAt temporal.updatedAtString()
-}
+ // ============================================
+ // CATEGORIAS DO CARDÁPIO
+ // ============================================
+
+ model Category {
+   id          Int     @id @default(autoincrement())
+   name        String
+   slug        String  @unique
+   description String?
+   imageUrl    String?
+
+   isActive  Boolean @default(true)
+   sortOrder Int     @default(0)
+
+   products      Product[]
+   subcategories Subcategory[]
+   addons        AddonCategory[]
+
+   createdAt TimestamptzString @default(now())
+   updatedAt temporal.updatedAtString()
+ }
+
+ // ============================================
+ // SUBCATEGORIAS DO CARDÁPIO
+ // ============================================
+
+ model Subcategory {
+   id Int @id @default(autoincrement())
+
+   categoryId Int
+
+   category Category @relation(
+     fields: [categoryId],
+     references: [id]
+   )
+
+   name String
+   slug String
+
+   isActive  Boolean @default(true)
+   sortOrder Int     @default(0)
+
+   products     Product[]
+   pizzaFlavors PizzaFlavor[]
+   addonLinks   AddonSubcategory[]
+
+   createdAt TimestamptzString @default(now())
+   updatedAt temporal.updatedAtString()
+
+   @@unique([categoryId, slug])
+   @@index([categoryId])
+ }
+
+ // ============================================
+ // PRODUTOS DO CARDÁPIO
+ // ============================================
+
+ model Product {
+   id Int @id @default(autoincrement())
+
+   // Categoria principal
+   categoryId Int
+
+   category Category @relation(
+     fields: [categoryId],
+     references: [id]
+   )
+
+   // Subcategoria opcional
+   subcategoryId Int?
+
+   subcategory Subcategory? @relation(
+     fields: [subcategoryId],
+     references: [id]
+   )
+
+   // Informações
+   name        String
+   slug        String @unique
+   description String?
+   imageUrl    String?
+
+   // Precificação
+   pricingType ProductPricingType @default(FIXED)
+
+   // Valor em centavos
+   priceCents Int @default(0)
+
+   // Configurações de pizza do modelo anterior
+   pizzaSlices Int?
+
+   allowsFlavors Boolean @default(false)
+   maxFlavors    Int     @default(1)
+
+   // Adicionais
+   allowsAddons Boolean @default(false)
+
+   // Estoque
+   // NULL = sem controle
+   // 0 = esgotado
+   stockQuantity Int?
+
+   // Administração
+   isActive    Boolean @default(true)
+   isAvailable Boolean @default(true)
+   isFeatured  Boolean @default(false)
+   sortOrder   Int     @default(0)
+
+   // Relações
+   flavors    ProductFlavor[]
+   addons     ProductAddon[]
+   orderItems OrderItem[]
+
+   createdAt TimestamptzString @default(now())
+   updatedAt temporal.updatedAtString()
+
+   @@index([categoryId])
+   @@index([subcategoryId])
+   @@index([pricingType])
+ }
+
+ // ============================================
+ // SABORES DOS PRODUTOS
+ // MODELO ANTERIOR
+ // ============================================
+
+ model ProductFlavor {
+   id Int @id @default(autoincrement())
+
+   productId Int
+
+   product Product @relation(
+     fields: [productId],
+     references: [id]
+   )
+
+   name        String
+   description String?
+   imageUrl    String?
+
+   flavorType PizzaFlavorType @default(SAVORY)
+
+   additionalPriceCents Int @default(0)
+
+   isPremium Boolean @default(false)
+
+   premiumAdditionalCents Int @default(0)
+
+   isActive  Boolean @default(true)
+   sortOrder Int     @default(0)
+
+   addons ProductFlavorAddon[]
+
+   createdAt TimestamptzString @default(now())
+   updatedAt temporal.updatedAtString()
+
+   @@unique([productId, name])
+   @@index([productId])
+   @@index([flavorType])
+ }
+
+ // ============================================
+ // ADICIONAIS
+ // ============================================
+
+ model Addon {
+   id Int @id @default(autoincrement())
+
+   name        String
+   description String?
+   imageUrl    String?
+
+   priceCents Int
+
+   isActive Boolean @default(true)
+
+   flavors       ProductFlavorAddon[]
+   pizzaFlavors  PizzaFlavorAddon[]
+   subcategories AddonSubcategory[]
+   categories    AddonCategory[]
+   products      ProductAddon[]
+
+   createdAt TimestamptzString @default(now())
+   updatedAt temporal.updatedAtString()
+ }
+
+ // ============================================
+ // ADICIONAIS POR CATEGORIA
+ // ============================================
+
+ model AddonCategory {
+   id Int @id @default(autoincrement())
+
+   addonId    Int
+   categoryId Int
+
+   addon Addon @relation(
+     fields: [addonId],
+     references: [id]
+   )
+
+   category Category @relation(
+     fields: [categoryId],
+     references: [id]
+   )
+
+   isActive  Boolean @default(true)
+   sortOrder Int     @default(0)
+
+   @@unique([addonId, categoryId])
+   @@index([categoryId])
+ }
+
+ // ============================================
+ // ADICIONAIS POR PRODUTO
+ // ============================================
+
+ model ProductAddon {
+   id Int @id @default(autoincrement())
+
+   productId Int
+
+   product Product @relation(
+     fields: [productId],
+     references: [id]
+   )
+
+   addonId Int
+
+   addon Addon @relation(
+     fields: [addonId],
+     references: [id]
+   )
+
+   isActive  Boolean @default(true)
+   sortOrder Int     @default(0)
+
+   @@unique([productId, addonId])
+   @@index([productId])
+   @@index([addonId])
+ }
+
+ // ============================================
+ // ADICIONAIS POR SABOR
+ // MODELO ANTERIOR
+ // ============================================
+
+ model ProductFlavorAddon {
+   id Int @id @default(autoincrement())
+
+   productFlavorId Int
+
+   flavor ProductFlavor @relation(
+     fields: [productFlavorId],
+     references: [id]
+   )
+
+   addonId Int
+
+   addon Addon @relation(
+     fields: [addonId],
+     references: [id]
+   )
+
+   isActive  Boolean @default(true)
+   sortOrder Int     @default(0)
+
+   @@unique([productFlavorId, addonId])
+   @@index([productFlavorId])
+   @@index([addonId])
+ }
+
+ // ============================================
+ // CATÁLOGO DE PIZZAS
+ // MODELO ATUAL
+ // ============================================
+
+ model PizzaSize {
+   id Int @id @default(autoincrement())
+
+   name        String
+   slug        String @unique
+   description String?
+   imageUrl    String?
+
+   slices     Int
+   diameterCm Int?
+
+   basePriceCents Int
+
+   maxFlavors Int @default(2)
+
+   isActive    Boolean @default(true)
+   isAvailable Boolean @default(true)
+
+   sortOrder Int @default(0)
+
+   flavorLinks PizzaFlavorSize[]
+
+   createdAt TimestamptzString @default(now())
+   updatedAt temporal.updatedAtString()
+ }
+
+ // ============================================
+ // SABORES DO CATÁLOGO DE PIZZAS
+ // ============================================
+
+ model PizzaFlavor {
+   id Int @id @default(autoincrement())
+
+   subcategoryId Int
+
+   subcategory Subcategory @relation(
+     fields: [subcategoryId],
+     references: [id]
+   )
+
+   name        String
+   description String?
+   imageUrl    String?
+
+   additionalPriceCents Int @default(0)
+
+   isPremium Boolean @default(false)
+
+   premiumAdditionalCents Int @default(0)
+
+   // Todos os tamanhos ou somente vinculados
+   allSizes Boolean @default(true)
+
+   isActive  Boolean @default(true)
+   sortOrder Int     @default(0)
+
+   sizeLinks PizzaFlavorSize[]
+   addons    PizzaFlavorAddon[]
+
+   createdAt TimestamptzString @default(now())
+   updatedAt temporal.updatedAtString()
+
+   @@unique([subcategoryId, name])
+   @@index([subcategoryId])
+ }
+
+ // ============================================
+ // TAMANHOS PERMITIDOS POR SABOR
+ // ============================================
+
+ model PizzaFlavorSize {
+   id Int @id @default(autoincrement())
+
+   pizzaFlavorId Int
+   pizzaSizeId   Int
+
+   flavor PizzaFlavor @relation(
+     fields: [pizzaFlavorId],
+     references: [id]
+   )
+
+   size PizzaSize @relation(
+     fields: [pizzaSizeId],
+     references: [id]
+   )
+
+   isActive Boolean @default(true)
+
+   @@unique([pizzaFlavorId, pizzaSizeId])
+   @@index([pizzaSizeId])
+ }
+
+ // ============================================
+ // ADICIONAIS POR SUBCATEGORIA
+ // ============================================
+
+ model AddonSubcategory {
+   id Int @id @default(autoincrement())
+
+   addonId       Int
+   subcategoryId Int
+
+   addon Addon @relation(
+     fields: [addonId],
+     references: [id]
+   )
+
+   subcategory Subcategory @relation(
+     fields: [subcategoryId],
+     references: [id]
+   )
+
+   isActive  Boolean @default(true)
+   sortOrder Int     @default(0)
+
+   @@unique([addonId, subcategoryId])
+   @@index([subcategoryId])
+ }
+
+ // ============================================
+ // ADICIONAIS POR SABOR DE PIZZA
+ // MODELO ATUAL
+ // ============================================
+
+ model PizzaFlavorAddon {
+   id Int @id @default(autoincrement())
+
+   pizzaFlavorId Int
+   addonId       Int
+
+   flavor PizzaFlavor @relation(
+     fields: [pizzaFlavorId],
+     references: [id]
+   )
+
+   addon Addon @relation(
+     fields: [addonId],
+     references: [id]
+   )
+
+   isActive  Boolean @default(true)
+   sortOrder Int     @default(0)
+
+   @@unique([pizzaFlavorId, addonId])
+   @@index([addonId])
+ }
+
+ // ============================================
+ // CONFIGURAÇÕES DE ENTREGA
+ // ============================================
+
+ model DeliverySettings {
+   id Int @id @default(autoincrement())
+
+   // Taxa fixa em centavos
+   // 800 = R$ 8,00
+   fixedFeeCents Int @default(800)
+
+   isEnabled Boolean @default(true)
+
+   contactPhone String?
+
+   unavailableMessage String @default("Entrega indisponível neste endereço. Entre em contato com o restaurante para consultar a possibilidade de entrega.")
+
+   createdAt TimestamptzString @default(now())
+   updatedAt temporal.updatedAtString()
+ }
+
+ // ============================================
+ // ÁREA GEOGRÁFICA DE ENTREGA
+ // ============================================
+
+ model DeliveryZone {
+   id Int @id @default(autoincrement())
+
+   name String @default("Zona urbana de Rebouças")
+
+   // Polígono GeoJSON
+   polygon Json
+
+   isActive Boolean @default(true)
+
+   createdAt TimestamptzString @default(now())
+   updatedAt temporal.updatedAtString()
+ }
+
+ // ============================================
+ // PEDIDOS DO RESTAURANTE
+ // ============================================
+
+ model Order {
+   id Int @id @default(autoincrement())
+
+   // ==========================================
+   // IDENTIFICAÇÃO DO PEDIDO
+   // ==========================================
+
+   // Número público
+   // Exemplo: JP-000123
+   orderNumber String @unique
+
+   // Impede duplicidade de confirmação
+   idempotencyKey String @unique
+
+   // NOVO:
+   // Hash SHA-256 do conteúdo do pedido.
+   //
+   // Permite identificar tentativas de
+   // reutilizar a mesma chave de confirmação
+   // com itens ou informações diferentes.
+   //
+   // Opcional para compatibilidade com
+   // pedidos criados anteriormente.
+   requestHash String?
+
+   // ==========================================
+   // CLIENTE - BETTER AUTH
+   // ==========================================
+
+   // ID do usuário autenticado
+   customerId String
+
+   // Snapshot dos dados do cliente
+   customerName  String
+   customerEmail String
+
+   // ==========================================
+   // STATUS DO PEDIDO
+   // ==========================================
+
+   status OrderStatus @default(PENDING)
+
+   // ==========================================
+   // PAGAMENTO
+   // ==========================================
+
+   // Stripe será implementado futuramente.
+   // Por enquanto, não processamos pagamentos.
+   paymentStatus PaymentStatus @default(NOT_PROCESSED)
+
+   paymentMethod PaymentMethod @default(UNDEFINED)
+
+   // ==========================================
+   // ENTREGA OU RETIRADA
+   // ==========================================
+
+   fulfillmentType FulfillmentType
+
+   // Snapshot do endereço confirmado
+   // NULL para retirada no restaurante
+   deliveryAddress Json?
+
+   // ==========================================
+   // OBSERVAÇÕES
+   // ==========================================
+
+   notes String @default("")
+
+   // ==========================================
+   // VALORES EM CENTAVOS
+   // ==========================================
+
+   subtotalCents Int
+
+   deliveryFeeCents Int @default(0)
+
+   totalCents Int
+
+   // ==========================================
+   // RELACIONAMENTOS
+   // ==========================================
+
+   items OrderItem[]
+
+   // ==========================================
+   // DATAS
+   // ==========================================
+
+   createdAt TimestamptzString @default(now())
+   updatedAt temporal.updatedAtString()
+
+   cancelledAt TimestamptzString?
+
+   // ==========================================
+   // ÍNDICES
+   // ==========================================
+
+   @@index([customerId])
+   @@index([status])
+   @@index([createdAt])
+   @@index([customerId, createdAt])
+ }
+
+ // ============================================
+ // ITENS DOS PEDIDOS
+ // ============================================
+
+ model OrderItem {
+   id Int @id @default(autoincrement())
+
+   // ==========================================
+   // PEDIDO
+   // ==========================================
+
+   orderId Int
+
+   order Order @relation(
+     fields: [orderId],
+     references: [id],
+     onDelete: Cascade
+   )
+
+   // ==========================================
+   // PRODUTO
+   // ==========================================
+
+   // Opcional para preservar o histórico
+   // quando um produto for excluído.
+   productId Int?
+
+   product Product? @relation(
+     fields: [productId],
+     references: [id],
+     onDelete: SetNull
+   )
+
+   // Snapshot dos dados do produto
+   productName     String
+   productImageUrl String?
+
+   // ==========================================
+   // TIPO E QUANTIDADE
+   // ==========================================
+
+   type OrderItemType @default(PRODUCT)
+
+   quantity Int
+
+   // ==========================================
+   // OBSERVAÇÕES
+   // ==========================================
+
+   notes String @default("")
+
+   // ==========================================
+   // PREÇOS
+   // ==========================================
+
+   // Preço unitário incluindo personalizações
+   unitPriceCents Int
+
+   // unitPriceCents * quantity
+   totalPriceCents Int
+
+   // ==========================================
+   // PERSONALIZAÇÕES
+   // ==========================================
+
+   // Adicionais selecionados
+   // [{ id, name, quantity, unitPriceCents }]
+   addons Json
+
+   // Dados da pizza personalizada
+   // NULL para produtos comuns
+   pizza Json?
+
+   // Ingredientes removidos
+   // [{ id, name }]
+   removedIngredients Json
+
+   // ==========================================
+   // ÍNDICES
+   // ==========================================
+
+   @@index([orderId])
+   @@index([productId])
+ }

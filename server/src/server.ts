@@ -69,6 +69,15 @@ import { productImagesRouter } from "./modules/uploads/productImages.routes.js";
 import { productIngredientsRouter } from "./modules/product-ingredients/product-ingredients.routes.js";
 
 // ============================================
+// PEDIDOS
+// ============================================
+
+import {
+  ordersRouter,
+  adminOrdersRouter,
+} from "./modules/orders/orders.routes.js";
+
+// ============================================
 // INICIALIZAÇÃO
 // ============================================
 
@@ -277,12 +286,50 @@ app.use(
   productImagesRouter,
 );
 
-// ============================================
-// 11. INICIALIZAÇÃO DO SERVIDOR
-// ============================================
 
-app.listen(PORT, () => {
-  console.log(
-    `🔥 API Espetinhos João Paulo rodando em http://localhost:${PORT}`,
-  );
-});
+ // ============================================
+ // 11. PEDIDOS
+ // ============================================
+
+ // --------------------------------------------
+ // PEDIDOS DOS CLIENTES
+ // --------------------------------------------
+
+ // POST /api/orders
+ // GET  /api/orders/my
+ // GET  /api/orders/:id
+ //
+ // A autenticação e a permissão CUSTOMER
+ // são verificadas dentro do ordersRouter.
+
+ app.use(
+   "/api/orders",
+   ordersRouter,
+ );
+
+ // --------------------------------------------
+ // GERENCIAMENTO ADMINISTRATIVO
+ // --------------------------------------------
+
+ // GET   /api/admin/orders
+ // GET   /api/admin/orders/:id
+ // PATCH /api/admin/orders/:id/status
+ //
+ // A autenticação e a permissão ADMIN
+ // são verificadas dentro do adminOrdersRouter.
+
+ app.use(
+   "/api/admin/orders",
+   adminOrdersRouter,
+ );
+
+ // ============================================
+ // 12. INICIALIZAÇÃO DO SERVIDOR
+ // ============================================
+
+ app.listen(PORT, () => {
+   console.log(
+     `🔥 API Espetinhos João Paulo rodando em http://localhost:${PORT}`,
+   );
+ });
+
