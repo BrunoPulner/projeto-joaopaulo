@@ -332,6 +332,14 @@ export function CartProvider({
     );
   }
 
+  // ============================================
+// LIMPAR CARRINHO
+// ============================================
+
+function clearCart() {
+  setItems([]);
+}
+
   // ==========================================
   // ABRIR SACOLA
   // ==========================================
@@ -364,6 +372,7 @@ export function CartProvider({
         increase,
         decrease,
         remove,
+        clearCart,
       }}
     >
       {children}

@@ -16,7 +16,9 @@ import { AdminDashboardSectionPlaceholder } from "../components/AdminDashboardSe
 
 import { AdminDashboardProducts } from "../components/AdminDashboardProducts";
 
-// NOVO: configurações de entregas e fretes
+import { AdminDashboardOrders } from "../components/AdminDashboardOrders";
+
+// Configurações de entregas e fretes
 import { AdminDeliverySettings } from "../../../admin/components/delivery/AdminDeliverySettings";
 
 // ============================================
@@ -46,30 +48,39 @@ export function AdminDashboardPage() {
 
   function renderActiveSection() {
     switch (activeSection) {
+      // VISÃO GERAL
       case "overview":
         return (
           <AdminDashboardOverview
-            onViewOrders={() => setActiveSection("orders")}
+            onViewOrders={() =>
+              setActiveSection("orders")
+            }
           />
         );
 
+      // PRODUTOS
       case "products":
         return <AdminDashboardProducts />;
 
+      // CATEGORIAS
       case "categories":
         return <AdminDashboardCategories />;
 
-      // NOVO: entregas e fretes
-      case "delivery":
-        return <AdminDeliverySettings />;
-
+      // PEDIDOS
       case "orders":
+        return <AdminDashboardOrders />;
+
+      // CLIENTES
       case "customers":
         return (
           <AdminDashboardSectionPlaceholder
-            section={activeSection}
+            section="customers"
           />
         );
+
+      // ENTREGAS E FRETES
+      case "delivery":
+        return <AdminDeliverySettings />;
 
       default:
         return null;

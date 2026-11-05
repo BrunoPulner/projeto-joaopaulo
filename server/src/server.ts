@@ -77,6 +77,9 @@ import {
   adminOrdersRouter,
 } from "./modules/orders/orders.routes.js";
 
+
+import { adminCustomersRouter } from "./routes/admin-customers.routes.js";
+
 // ============================================
 // INICIALIZAÇÃO
 // ============================================
@@ -284,6 +287,11 @@ app.use(
 app.use(
   "/api/images",
   productImagesRouter,
+);
+
+app.use(
+  "/api/admin/customers",
+  adminCustomersRouter,
 );
 
 

@@ -1,7 +1,9 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useSession } from "../../../lib/auth-client";
+import { useCart } from "../useCart";
+import { createOrder, buildCreateOrderPayload, type CreatedOrder } from "../api/orders.api";
 import { checkDeliveryAvailability } from "../delivery/api/deliveryAvailabilityApi";
 
 import {
@@ -161,6 +163,23 @@ export function CartDrawer({
 }: CartDrawerProps) {
   const { data: session, isPending: sessionPending } = useSession();
   const userId = session?.user?.id ?? null;
+  const { clearCart } = useCart();
+
+  // Impede duplo envio mesmo antes de o React atualizar a interface.
+  const sendingRef = useRef(false);
+  // Mantém a mesma chave para tentativas do MESMO conteúdo.
+  const attemptRef = useRef<{ fingerprint: string; key: string } | null>(null);
+  const [sendingOrder, setSendingOrder] = useState(false);
+  const [confirmedOrder, setConfirmedOrder] = useState<CreatedOrder | null>(null);
+
+  // ==========================================
+  // REVISÃO DO CHECKOUT (SEM ENVIO AINDA)
+  // ==========================================
+
+  const [showCheckoutConfirmation, setShowCheckoutConfirmation] =
+    useState(false);
+  const [checkoutError, setCheckoutError] =
+    useState<string | null>(null);
 
   // ==========================================
   // MODALIDADE DE RECEBIMENTO
@@ -281,8 +300,12 @@ useEffect(() => {
     if (!open) return;
 
     function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape" && !showAddressSelector) {
-        onClose();
+      if (event.key === "Escape") {
+        if (showCheckoutConfirmation) {
+          setShowCheckoutConfirmation(false);
+        } else if (!showAddressSelector) {
+          onClose();
+        }
       }
     }
 
@@ -297,7 +320,7 @@ useEffect(() => {
         handleEscape,
       );
     };
-  }, [open, onClose, showAddressSelector]);
+  }, [open, onClose, showAddressSelector, showCheckoutConfirmation]);
 
   // ==========================================
   // TOTAIS
@@ -395,6 +418,123 @@ function handleFulfillmentChange(
   }
 
   // ==========================================
+  // CONTINUAR PARA REVISÃO
+  // ==========================================
+
+  function handleContinueOrder() {
+    setCheckoutError(null);
+
+    if (items.length === 0) {
+      setCheckoutError("Adicione pelo menos um produto ao carrinho.");
+      return;
+    }
+
+    if (sessionPending) {
+      setCheckoutError("Aguarde a verificação da sua conta.");
+      return;
+    }
+
+    if (!userId) {
+      setCheckoutError("Entre na sua conta para continuar o pedido.");
+      return;
+    }
+
+    if (isDelivery && !deliveryAvailable) {
+      setCheckoutError("Confirme um endereço dentro da área de entrega.");
+      return;
+    }
+
+    setShowCheckoutConfirmation(true);
+  }
+
+  // ==========================================
+  // ENVIAR PEDIDO SEM PROCESSAR PAGAMENTO
+  // ==========================================
+
+  async function handleConfirmOrder() {
+    if (sendingRef.current || confirmedOrder) return;
+
+    setCheckoutError(null);
+
+    if (!userId || sessionPending || items.length === 0) {
+      setCheckoutError("Faça login e confira os itens do carrinho.");
+      return;
+    }
+
+    if (isDelivery && (!deliveryAvailable || !deliveryAddress)) {
+      setCheckoutError("Confirme um endereço com entrega disponível.");
+      return;
+    }
+
+    // A impressão digital identifica os dados do pedido, não os preços
+    // calculados pelo frontend. Uma mudança gera uma nova tentativa.
+    const fingerprint = JSON.stringify({
+      userId,
+      fulfillmentType,
+      deliveryAddress: isDelivery ? deliveryAddress?.address : null,
+      items: items.map((item) => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+        notes: item.notes,
+        type: item.type ?? "PRODUCT",
+        addons: item.addons?.map(({ id, quantity }) => ({ id, quantity })),
+        pizza: item.pizza
+          ? {
+              sizeId: item.pizza.size.id,
+              flavorIds: item.pizza.flavors.map(({ id }) => id),
+              addonIds: item.pizza.addons.map(({ id }) => id),
+            }
+          : null,
+        removedIngredientIds: item.removedIngredients?.map(({ id }) => id),
+      })),
+    });
+
+    if (attemptRef.current?.fingerprint !== fingerprint) {
+      attemptRef.current = {
+        fingerprint,
+        key: crypto.randomUUID(),
+      };
+    }
+
+    const idempotencyKey = attemptRef.current.key;
+
+    try {
+      // Valida o formato antes de iniciar a requisição.
+      buildCreateOrderPayload({
+        items,
+        fulfillmentType,
+        deliveryAddress: isDelivery ? deliveryAddress!.address : undefined,
+        paymentMethod: "UNDEFINED",
+        idempotencyKey,
+      });
+
+      sendingRef.current = true;
+      setSendingOrder(true);
+
+      const order = await createOrder({
+        items,
+        fulfillmentType,
+        deliveryAddress: isDelivery ? deliveryAddress!.address : undefined,
+        paymentMethod: "UNDEFINED",
+        idempotencyKey,
+      });
+
+      setConfirmedOrder(order);
+      clearCart();
+      attemptRef.current = null;
+    } catch (error) {
+      setCheckoutError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível registrar o pedido. Tente novamente.",
+      );
+    } finally {
+      sendingRef.current = false;
+      setSendingOrder(false);
+    }
+  }
+
+  // ==========================================
   // INTERFACE
   // ==========================================
 
@@ -414,7 +554,7 @@ function handleFulfillmentChange(
         type="button"
         aria-label="Fechar sacola"
         onClick={() => {
-          if (!showAddressSelector) onClose();
+          if (!showAddressSelector && !showCheckoutConfirmation) onClose();
         }}
         tabIndex={open && !showAddressSelector ? 0 : -1}
         className={`
@@ -784,17 +924,23 @@ function handleFulfillmentChange(
 
           <button
             type="button"
-            disabled
-            title="O fechamento de pedidos será disponibilizado após a integração do checkout."
-            className="mt-4 inline-flex min-h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-stone-300 px-5 py-3 text-sm font-black text-white"
+            onClick={handleContinueOrder}
+            disabled={
+              items.length === 0 ||
+              sessionPending ||
+              (isDelivery && !deliveryAvailable)
+            }
+            className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 py-3 text-sm font-black text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-stone-300"
           >
             Continuar pedido
-
-            <ArrowRight
-              size={17}
-              aria-hidden="true"
-            />
+            <ArrowRight size={17} aria-hidden="true" />
           </button>
+
+          {checkoutError && (
+            <p role="alert" className="mt-2 text-center text-xs font-semibold text-red-700">
+              {checkoutError}
+            </p>
+          )}
 
           {/* CONTINUAR COMPRANDO */}
 
@@ -814,6 +960,96 @@ function handleFulfillmentChange(
         onClose={handleCancelAddressSelection}
         onConfirm={handleAddressConfirmed}
       />
+
+      {open && showCheckoutConfirmation && (
+        <div className="absolute inset-0 z-60 flex items-center justify-center bg-stone-950/60 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="checkout-confirm-title"
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <h3 id="checkout-confirm-title" className="text-lg font-black text-stone-900">
+              {confirmedOrder ? "Pedido registrado!" : "Confirmar pedido"}
+            </h3>
+
+            {confirmedOrder ? (
+              <div role="status" className="mt-3 rounded-xl bg-green-50 p-4 text-sm text-green-800">
+                <p className="font-black">Pedido {confirmedOrder.orderNumber}</p>
+                <p className="mt-1">Recebemos seu pedido. Status: aguardando confirmação do restaurante.</p>
+                <p className="mt-1">Total registrado: {formatPrice(confirmedOrder.totalCents)}</p>
+                <p className="mt-1">Pagamento ainda não processado.</p>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-stone-600">
+                Confira as informações antes de enviar seu pedido ao restaurante.
+              </p>
+            )}
+
+            {!confirmedOrder && <div className="mt-4 space-y-2 rounded-xl bg-stone-50 p-4 text-sm">
+              <div className="flex justify-between gap-3">
+                <span>Quantidade de itens</span>
+                <strong>{itemCount}</strong>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span>Recebimento</span>
+                <strong>{isDelivery ? "Entrega" : "Retirada"}</strong>
+              </div>
+              <div className="flex justify-between gap-3 border-t border-stone-200 pt-2">
+                <span>Total previsto</span>
+                <strong>{formatPrice(totalCents)}</strong>
+              </div>
+            </div>}
+            {!confirmedOrder && (
+              <p className="mt-3 text-xs text-stone-500">
+                O pagamento online será implementado em uma próxima etapa. O pedido será registrado sem cobrança.
+              </p>
+            )}
+            {checkoutError && (
+              <p role="alert" className="mt-3 text-xs font-semibold text-red-700">{checkoutError}</p>
+            )}
+
+            <div className="mt-5 flex gap-2">
+              {confirmedOrder ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmedOrder(null);
+                    setShowCheckoutConfirmation(false);
+                    setCheckoutError(null);
+                    onClose();
+                  }}
+                  className="w-full rounded-xl bg-orange-600 px-4 py-3 text-sm font-bold text-white hover:bg-orange-700"
+                >
+                  Concluir
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={sendingOrder}
+                    onClick={() => {
+                      setCheckoutError(null);
+                      setShowCheckoutConfirmation(false);
+                    }}
+                    className="flex-1 rounded-xl border border-stone-200 px-4 py-3 text-sm font-bold text-stone-700 disabled:opacity-50"
+                  >
+                    Voltar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={sendingOrder}
+                    onClick={() => void handleConfirmOrder()}
+                    className="flex-1 rounded-xl bg-orange-600 px-4 py-3 text-sm font-bold text-white hover:bg-orange-700 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {sendingOrder ? "Enviando..." : "Confirmar pedido"}
+                  </button>
+                </>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

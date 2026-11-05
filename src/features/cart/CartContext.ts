@@ -1,3 +1,4 @@
+
 import { createContext } from "react";
 
 import type {
@@ -19,6 +20,9 @@ export type CartContextValue = {
   increase: (itemId: string) => void;
   decrease: (itemId: string) => void;
   remove: (itemId: string) => void;
+
+  // Limpar carrinho após pedido confirmado
+  clearCart: () => void;
 };
 
 export const CartContext =
