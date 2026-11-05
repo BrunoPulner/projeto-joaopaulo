@@ -8,12 +8,14 @@ import {
   type AdminDashboardSection,
 } from "../components/AdminDashboardSidebar";
 
+import { AdminDashboardCustomers } from "../components/AdminDashboardCustomers"
+
 import { AdminDashboardOverview } from "../components/AdminDashboardOverview";
 
 import { AdminDashboardCategories } from "../components/AdminDashboardCategories";
 
-import { AdminDashboardSectionPlaceholder } from "../components/AdminDashboardSectionPlaceholder";
 
+;
 import { AdminDashboardProducts } from "../components/AdminDashboardProducts";
 
 import { AdminDashboardOrders } from "../components/AdminDashboardOrders";
@@ -72,11 +74,7 @@ export function AdminDashboardPage() {
 
       // CLIENTES
       case "customers":
-        return (
-          <AdminDashboardSectionPlaceholder
-            section="customers"
-          />
-        );
+  return <AdminDashboardCustomers />;
 
       // ENTREGAS E FRETES
       case "delivery":

@@ -149,6 +149,46 @@ function assertCustomer(customer: OrderCustomer): void {
   }
 }
 
+
+ // ============================================
+ // VALIDAR PERMISSÃO DO CLIENTE PARA PEDIDOS
+ // ============================================
+
+ async function assertCustomerCanOrder(
+   client: PoolClient,
+   customerId: string,
+ ): Promise<void> {
+   const result = await client.query<{
+     ordersBlocked: boolean;
+   }>(
+     `
+     SELECT "ordersBlocked"
+     FROM public."user"
+     WHERE id = $1
+       AND role = 'CUSTOMER'
+     FOR SHARE
+     `,
+     [customerId],
+   );
+
+   const customer = result.rows[0];
+
+   if (!customer) {
+     throw new OrderServiceError(
+       "Cliente não encontrado ou sem permissão para realizar pedidos.",
+       403,
+     );
+   }
+
+   if (customer.ordersBlocked) {
+     throw new OrderServiceError(
+       "Sua conta está temporariamente impedida de realizar pedidos. Entre em contato com o restaurante.",
+       403,
+     );
+   }
+ }
+
+
 // ============================================
 // BUSCAR PRODUTO
 // ============================================
@@ -767,6 +807,19 @@ export async function createOrder(
       )`,
       [input.idempotencyKey],
     );
+
+    // ========================================
+    // VALIDAR PERMISSÃO DO CLIENTE
+    // ========================================
+
+    await assertCustomerCanOrder(
+      client,
+      customer.id,
+    );
+
+    // ========================================
+    // VERIFICAR IDEMPOTÊNCIA
+    // ========================================
 
     const existing = await client.query<{
       id: number;

@@ -15,6 +15,12 @@ import {
   CustomerNotFoundError,
 } from "../services/admin-customers.service.js";
 
+import {
+  adminCustomerIdParamsSchema,
+  updateAdminCustomerNameSchema,
+  blockAdminCustomerSchema,
+} from "../schemas/admin-customers.schema.js";
+
 // ============================================
 // RESPOSTAS PADRONIZADAS
 // ============================================
@@ -23,8 +29,8 @@ function sendError(
   res: Response,
   status: number,
   message: string,
-) {
-  return res.status(status).json({
+): void {
+  res.status(status).json({
     success: false,
     message,
   });
@@ -38,7 +44,7 @@ function handleCustomerError(
   error: unknown,
   res: Response,
   next: NextFunction,
-) {
+): void {
   if (error instanceof CustomerNotFoundError) {
     sendError(
       res,
@@ -57,16 +63,24 @@ function handleCustomerError(
 
 function getCustomerId(
   req: Request,
+  res: Response,
 ): string | null {
-  const value = req.params.id;
+  const parsed =
+    adminCustomerIdParamsSchema.safeParse(
+      req.params,
+    );
 
-  if (typeof value !== "string") {
+  if (!parsed.success) {
+    sendError(
+      res,
+      400,
+      "ID do cliente inválido.",
+    );
+
     return null;
   }
 
-  const id = value.trim();
-
-  return id.length > 0 ? id : null;
+  return parsed.data.id;
 }
 
 // ============================================
@@ -125,10 +139,9 @@ export async function getAdminCustomerByIdController(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const customerId = getCustomerId(req);
+  const customerId = getCustomerId(req, res);
 
-  if (!customerId) {
-    sendError(res, 400, "ID do cliente inválido.");
+  if (customerId === null) {
     return;
   }
 
@@ -155,40 +168,23 @@ export async function updateAdminCustomerNameController(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const customerId = getCustomerId(req);
+  const customerId = getCustomerId(req, res);
 
-  if (!customerId) {
-    sendError(res, 400, "ID do cliente inválido.");
+  if (customerId === null) {
     return;
   }
 
-  const body = req.body as
-    | { displayName?: unknown }
-    | undefined;
-
-  const displayName = body?.displayName;
-
-  if (
-    displayName !== null &&
-    typeof displayName !== "string"
-  ) {
-    sendError(
-      res,
-      400,
-      "Informe um nome válido ou null para restaurar o nome original.",
+  const parsed =
+    updateAdminCustomerNameSchema.safeParse(
+      req.body,
     );
-    return;
-  }
 
-  if (
-    typeof displayName === "string" &&
-    displayName.trim().length > 100
-  ) {
-    sendError(
-      res,
-      400,
-      "O nome deve ter no máximo 100 caracteres.",
-    );
+  if (!parsed.success) {
+    const message =
+      parsed.error.issues[0]?.message ??
+      "Dados inválidos para atualizar o nome.";
+
+    sendError(res, 400, message);
     return;
   }
 
@@ -196,7 +192,7 @@ export async function updateAdminCustomerNameController(
     const customer =
       await updateAdminCustomerName(
         customerId,
-        displayName as string | null,
+        parsed.data.displayName,
       );
 
     res.status(200).json({
@@ -219,51 +215,34 @@ export async function blockAdminCustomerController(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const customerId = getCustomerId(req);
+  const customerId = getCustomerId(req, res);
 
-  if (!customerId) {
-    sendError(res, 400, "ID do cliente inválido.");
+  if (customerId === null) {
     return;
   }
 
-  const body = req.body as
-    | { reason?: unknown }
-    | undefined;
-
-  const reason = body?.reason;
-
-  if (
-    reason !== undefined &&
-    reason !== null &&
-    typeof reason !== "string"
-  ) {
-    sendError(
-      res,
-      400,
-      "O motivo do bloqueio deve ser um texto.",
+  const parsed =
+    blockAdminCustomerSchema.safeParse(
+      req.body ?? {},
     );
+
+  if (!parsed.success) {
+    const message =
+      parsed.error.issues[0]?.message ??
+      "Dados inválidos para bloquear o cliente.";
+
+    sendError(res, 400, message);
     return;
   }
 
-  if (
-    typeof reason === "string" &&
-    reason.trim().length > 500
-  ) {
-    sendError(
-      res,
-      400,
-      "O motivo deve ter no máximo 500 caracteres.",
-    );
-    return;
-  }
+  const reason =
+    parsed.data.reason ?? null;
 
   try {
     const customer =
       await blockAdminCustomer(
         customerId,
-        typeof reason === "string"
-          ? reason
-          : null,
+        reason,
       );
 
     res.status(200).json({
@@ -286,10 +265,9 @@ export async function unblockAdminCustomerController(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const customerId = getCustomerId(req);
+  const customerId = getCustomerId(req, res);
 
-  if (!customerId) {
-    sendError(res, 400, "ID do cliente inválido.");
+  if (customerId === null) {
     return;
   }
 

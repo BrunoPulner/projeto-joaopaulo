@@ -1,16 +1,16 @@
 
 import { Router } from "express";
 
-import {
-  requireAuth,
-  
-} from "../../../server/src/middlewares/requireAuth.js";
+// ============================================
+// MIDDLEWARES DE AUTENTICAÇÃO
+// ============================================
 
+import { requireAuth } from "../middlewares/requireAuth.js";
+import { requireRole } from "../middlewares/requireRole.js";
 
-import {
-  requireRole,
-} from "../../../server/src/middlewares/requireRole.js";
-
+// ============================================
+// CONTROLLERS ADMINISTRATIVOS
+// ============================================
 
 import {
   listAdminCustomersController,
@@ -32,8 +32,8 @@ export const adminCustomersRouter = Router();
 // ============================================
 
 // Todas as rotas exigem:
-// 1. Usuário autenticado
-// 2. Permissão de administrador
+// 1. Sessão autenticada pelo Better Auth
+// 2. Usuário com permissão ADMIN
 
 adminCustomersRouter.use(
   requireAuth,
@@ -55,9 +55,9 @@ adminCustomersRouter.get(
 // GET /api/admin/customers/stats
 // ============================================
 
-// Esta rota deve ficar antes de /:id
-// para evitar que "stats" seja interpretado
-// como o ID de um cliente.
+// Esta rota deve permanecer antes de /:id
+// para que "stats" não seja interpretado
+// como um identificador de cliente.
 
 adminCustomersRouter.get(
   "/stats",
