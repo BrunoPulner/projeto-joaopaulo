@@ -22,5 +22,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src", "server/src/services", "server/src/schemas", "server/src/routes", "server/src/controllers"]
 }

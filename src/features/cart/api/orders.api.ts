@@ -70,19 +70,82 @@ export type CreateOrderOptions = {
 // RESPOSTA DA API
 // ============================================
 
+
+export type OrderStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "PREPARING"
+  | "READY"
+  | "OUT_FOR_DELIVERY"
+  | "COMPLETED"
+  | "CANCELLED";
+
+export type OrderAddonSnapshot = {
+  id: number;
+  name: string;
+  quantity: number;
+  unitPriceCents: number;
+};
+
+export type OrderPizzaSnapshot = {
+  size: {
+    id: number;
+    name: string;
+    basePriceCents: number;
+  };
+  flavors: {
+    id: number;
+    name: string;
+    additionalPriceCents: number;
+    isPremium: boolean;
+    premiumAdditionalCents: number;
+  }[];
+  addons: {
+    id: number;
+    name: string;
+    priceCents: number;
+  }[];
+};
+
+export type OrderItemSnapshot = {
+  id: number;
+  orderId: number;
+  productId: number | null;
+  productName: string;
+  productImageUrl: string | null;
+  type: "PRODUCT" | "PIZZA";
+  quantity: number;
+  notes: string;
+  unitPriceCents: number;
+  totalPriceCents: number;
+  addons: OrderAddonSnapshot[];
+  pizza: OrderPizzaSnapshot | null;
+  removedIngredients: {
+    id: number;
+    name: string;
+  }[];
+};
+
 export type CreatedOrder = {
   id: number;
   orderNumber: string;
   idempotencyKey: string;
-  status: string;
+  customerId: string;
+  status: OrderStatus;
   paymentStatus: string;
   paymentMethod: string;
   fulfillmentType: OrderFulfillmentType;
+  deliveryAddress: DeliveryAddress | null;
+  notes: string;
   subtotalCents: number;
   deliveryFeeCents: number;
   totalCents: number;
+  items: OrderItemSnapshot[];
   createdAt: string;
+  updatedAt: string;
+  cancelledAt: string | null;
 };
+
 
 type ApiResponse<T> = {
   success: boolean;
@@ -357,6 +420,32 @@ export async function getMyOrderById(
       signal,
     },
   );
+
+  return parseOrdersResponse<CreatedOrder>(
+    response,
+  );
+}
+
+
+export async function cancelMyOrder(
+  orderId: number,
+): Promise<CreatedOrder> {
+  let response: Response;
+
+  try {
+    response = await fetch(
+      `${ORDERS_URL}/${orderId}/cancel`,
+      {
+        method: "PATCH",
+        credentials: "include",
+      },
+    );
+  } catch {
+    throw new OrdersApiError(
+      "Não foi possível conectar ao servidor para cancelar o pedido.",
+      0,
+    );
+  }
 
   return parseOrdersResponse<CreatedOrder>(
     response,

@@ -11,6 +11,7 @@ import {
   postOrder,
   getMyOrders,
   getMyOrderById,
+  patchMyOrderCancel,
   getAdminOrders,
   getAdminOrderById,
   patchAdminOrderStatus,
@@ -43,6 +44,14 @@ ordersRouter.post(
 ordersRouter.get(
   "/my",
   getMyOrders,
+);
+
+// Cancelar pedido do próprio cliente
+// Disponível somente nos primeiros 5 minutos
+// e enquanto o status for PENDING.
+ordersRouter.patch(
+  "/:id/cancel",
+  patchMyOrderCancel,
 );
 
 // Consultar pedido específico

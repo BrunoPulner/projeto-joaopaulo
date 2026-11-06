@@ -9,6 +9,7 @@ import {
 } from "./orders.schemas.js";
 
 import {
+  cancelCustomerOrder,
   createOrder,
   findOrderById,
   listAdminOrders,
@@ -229,6 +230,60 @@ export async function getMyOrderById(
       response,
       error,
       "consultar pedido do cliente",
+    );
+  }
+}
+
+// ============================================
+// CANCELAR PEDIDO - CLIENTE
+// PATCH /api/orders/:id/cancel
+// ============================================
+
+export async function patchMyOrderCancel(
+  request: Request,
+  response: Response,
+): Promise<void> {
+  const user = getAuthUser(response);
+
+  if (!user) {
+    response.status(401).json({
+      success: false,
+      message: "Cliente não autenticado.",
+    });
+    return;
+  }
+
+  const id = parseOrderId(request);
+
+  if (id === null) {
+    response.status(400).json({
+      success: false,
+      message: "ID do pedido inválido.",
+    });
+    return;
+  }
+
+  try {
+    // O service valida:
+    // - Propriedade do pedido;
+    // - Status PENDING;
+    // - Prazo máximo de 5 minutos;
+    // - Reposição de estoque.
+    const order = await cancelCustomerOrder(
+      id,
+      user.id,
+    );
+
+    response.status(200).json({
+      success: true,
+      message: "Pedido cancelado com sucesso.",
+      data: order,
+    });
+  } catch (error) {
+    handleOrderError(
+      response,
+      error,
+      "cancelar pedido do cliente",
     );
   }
 }

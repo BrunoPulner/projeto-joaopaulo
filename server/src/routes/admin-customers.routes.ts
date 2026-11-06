@@ -1,16 +1,8 @@
 
 import { Router } from "express";
 
-// ============================================
-// MIDDLEWARES DE AUTENTICAÇÃO
-// ============================================
-
 import { requireAuth } from "../middlewares/requireAuth.js";
 import { requireRole } from "../middlewares/requireRole.js";
-
-// ============================================
-// CONTROLLERS ADMINISTRATIVOS
-// ============================================
 
 import {
   listAdminCustomersController,
@@ -31,9 +23,8 @@ export const adminCustomersRouter = Router();
 // AUTENTICAÇÃO E PERMISSÕES
 // ============================================
 
-// Todas as rotas exigem:
-// 1. Sessão autenticada pelo Better Auth
-// 2. Usuário com permissão ADMIN
+// Somente usuários autenticados com
+// a função ADMIN podem acessar estas rotas.
 
 adminCustomersRouter.use(
   requireAuth,
@@ -42,8 +33,9 @@ adminCustomersRouter.use(
 
 // ============================================
 // LISTAR CLIENTES
-// GET /api/admin/customers
 // ============================================
+
+// GET /api/admin/customers
 
 adminCustomersRouter.get(
   "/",
@@ -51,13 +43,10 @@ adminCustomersRouter.get(
 );
 
 // ============================================
-// INDICADORES DE CLIENTES
-// GET /api/admin/customers/stats
+// ESTATÍSTICAS DOS CLIENTES
 // ============================================
 
-// Esta rota deve permanecer antes de /:id
-// para que "stats" não seja interpretado
-// como um identificador de cliente.
+// GET /api/admin/customers/stats
 
 adminCustomersRouter.get(
   "/stats",
@@ -66,8 +55,9 @@ adminCustomersRouter.get(
 
 // ============================================
 // CONSULTAR CLIENTE POR ID
-// GET /api/admin/customers/:id
 // ============================================
+
+// GET /api/admin/customers/:id
 
 adminCustomersRouter.get(
   "/:id",
@@ -76,8 +66,9 @@ adminCustomersRouter.get(
 
 // ============================================
 // ALTERAR NOME EXIBIDO
-// PATCH /api/admin/customers/:id/name
 // ============================================
+
+// PATCH /api/admin/customers/:id/name
 
 adminCustomersRouter.patch(
   "/:id/name",
@@ -86,8 +77,9 @@ adminCustomersRouter.patch(
 
 // ============================================
 // BLOQUEAR CLIENTE
-// PATCH /api/admin/customers/:id/block
 // ============================================
+
+// PATCH /api/admin/customers/:id/block
 
 adminCustomersRouter.patch(
   "/:id/block",
@@ -96,8 +88,9 @@ adminCustomersRouter.patch(
 
 // ============================================
 // DESBLOQUEAR CLIENTE
-// PATCH /api/admin/customers/:id/unblock
 // ============================================
+
+// PATCH /api/admin/customers/:id/unblock
 
 adminCustomersRouter.patch(
   "/:id/unblock",

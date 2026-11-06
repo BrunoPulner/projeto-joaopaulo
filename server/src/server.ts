@@ -81,6 +81,12 @@ import {
 import { adminCustomersRouter } from "./routes/admin-customers.routes.js";
 
 // ============================================
+// PERFIL DO CLIENTE
+// ============================================
+
+import { customerProfileRouter } from "./routes/customer-profile.routes.js";
+
+// ============================================
 // INICIALIZAÇÃO
 // ============================================
 
@@ -293,6 +299,23 @@ app.use(
   "/api/admin/customers",
   adminCustomersRouter,
 );
+
+
+ // ============================================
+ // PERFIL DO CLIENTE
+ // ============================================
+
+ // GET /api/customer/profile
+ // PUT /api/customer/profile
+ //
+ // A autenticação e a permissão CUSTOMER
+ // são verificadas no customerProfileRouter.
+
+app.use(
+  "/api/customer/profile",
+  customerProfileRouter,
+);
+
 
 
  // ============================================

@@ -17,6 +17,38 @@ export type AdminCustomer = {
   blockedReason: string | null;
 };
 
+
+export type AdminCustomerAddress = {
+  street: string;
+  number: string;
+  neighborhood: string;
+  complement: string;
+  city: string;
+  state: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+};
+
+export type AdminCustomerDetails = AdminCustomer & {
+  phone: string | null;
+  address: AdminCustomerAddress | null;
+};
+
+type AdminCustomerDetailsRow = AdminCustomer & {
+  phone: string | null;
+  street: string | null;
+  number: string | null;
+  neighborhood: string | null;
+  complement: string | null;
+  city: string | null;
+  state: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+
+
 export type AdminCustomerStats = {
   total: number;
   enabled: number;
@@ -68,19 +100,46 @@ export async function listAdminCustomers():
 // CONSULTAR CLIENTE POR ID
 // ============================================
 
+
 export async function getAdminCustomerById(
   customerId: string,
-): Promise<AdminCustomer> {
-  const result = await pool.query<AdminCustomer>(
-    `
-    SELECT ${CUSTOMER_FIELDS}
-    FROM public."user"
-    WHERE id = $1
-      AND role = 'CUSTOMER'
-    LIMIT 1
-    `,
-    [customerId],
-  );
+): Promise<AdminCustomerDetails> {
+  const result =
+    await pool.query<AdminCustomerDetailsRow>(
+      `
+      SELECT
+        u.id,
+        u.name,
+        u."displayName",
+        u.email,
+        u.image,
+        u."createdAt",
+        u."ordersBlocked",
+        u."blockedAt",
+        u."blockedReason",
+
+        cp.phone,
+        cp.street,
+        cp.number,
+        cp.neighborhood,
+        cp.complement,
+        cp.city,
+        cp.state,
+        cp.latitude,
+        cp.longitude
+
+      FROM public."user" AS u
+
+      LEFT JOIN public."CustomerProfile" AS cp
+        ON cp."userId" = u.id
+
+      WHERE u.id = $1
+        AND u.role = 'CUSTOMER'
+
+      LIMIT 1
+      `,
+      [customerId],
+    );
 
   const customer = result.rows[0];
 
@@ -88,8 +147,49 @@ export async function getAdminCustomerById(
     throw new CustomerNotFoundError();
   }
 
-  return customer;
+  const hasAddress =
+    Boolean(customer.street) &&
+    Boolean(customer.number) &&
+    Boolean(customer.neighborhood) &&
+    Boolean(customer.city) &&
+    Boolean(customer.state) &&
+    customer.latitude !== null &&
+    customer.longitude !== null &&
+    Number.isFinite(customer.latitude) &&
+    Number.isFinite(customer.longitude);
+
+  const address: AdminCustomerAddress | null =
+    hasAddress
+      ? {
+          street: customer.street!,
+          number: customer.number!,
+          neighborhood: customer.neighborhood!,
+          complement: customer.complement ?? "",
+          city: customer.city!,
+          state: customer.state!,
+          coordinates: {
+            latitude: customer.latitude!,
+            longitude: customer.longitude!,
+          },
+        }
+      : null;
+
+  return {
+    id: customer.id,
+    name: customer.name,
+    displayName: customer.displayName,
+    email: customer.email,
+    image: customer.image,
+    createdAt: customer.createdAt,
+    ordersBlocked: customer.ordersBlocked,
+    blockedAt: customer.blockedAt,
+    blockedReason: customer.blockedReason,
+
+    phone: customer.phone,
+    address,
+  };
 }
+
 
 // ============================================
 // INDICADORES DE CLIENTES

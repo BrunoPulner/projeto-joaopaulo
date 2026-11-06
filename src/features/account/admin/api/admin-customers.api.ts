@@ -32,6 +32,26 @@
    blockedReason: string | null;
  };
 
+ 
+export type AdminCustomerAddress = {
+  street: string;
+  number: string;
+  neighborhood: string;
+  complement: string;
+  city: string;
+  state: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+};
+
+export type AdminCustomerDetails = AdminCustomer & {
+  phone: string | null;
+  address: AdminCustomerAddress | null;
+};
+
+
  export type AdminCustomerStats = {
    total: number;
    enabled: number;
@@ -203,18 +223,20 @@
  // GET /api/admin/customers/:id
  // ============================================
 
- export async function getAdminCustomerById(
-   customerId: string,
-   signal?: AbortSignal,
- ): Promise<AdminCustomer> {
-   return adminCustomersRequest<AdminCustomer>(
-     `/${encodeURIComponent(customerId)}`,
-     {
-       method: "GET",
-       signal,
-     },
-   );
- }
+ 
+export async function getAdminCustomerById(
+  customerId: string,
+  signal?: AbortSignal,
+): Promise<AdminCustomerDetails> {
+  return adminCustomersRequest<AdminCustomerDetails>(
+    `/${encodeURIComponent(customerId)}`,
+    {
+      method: "GET",
+      signal,
+    },
+  );
+}
+
 
  // ============================================
  // ATUALIZAR NOME EXIBIDO

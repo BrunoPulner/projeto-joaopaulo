@@ -1386,3 +1386,152 @@ export async function findOrderById(
      client.release();
    }
  }
+
+ 
+/**
+ * Cancela um pedido pelo próprio cliente.
+ *
+ * Regras:
+ * - Apenas o proprietário pode cancelar.
+ * - Apenas pedidos PENDING.
+ * - Prazo máximo de 5 minutos após o registro.
+ * - Verificação do horário no PostgreSQL.
+ * - Reposição de estoque na mesma transação.
+ */
+export async function cancelCustomerOrder(
+  orderId: number,
+  customerId: string,
+): Promise<Order> {
+  if (
+    !Number.isSafeInteger(orderId) ||
+    orderId <= 0
+  ) {
+    throw new OrderServiceError(
+      "Identificador do pedido inválido.",
+      400,
+    );
+  }
+
+  if (!customerId?.trim()) {
+    throw new OrderServiceError(
+      "Cliente não autenticado.",
+      401,
+    );
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Bloqueia a linha para impedir alterações
+    // simultâneas pelo cliente e administrador.
+    const result = await client.query<{
+      id: number;
+      status: OrderStatus;
+    }>(
+      `
+      SELECT id, status
+      FROM public."Order"
+      WHERE id = $1
+        AND "customerId" = $2
+      FOR UPDATE
+      `,
+      [orderId, customerId],
+    );
+
+    const current = result.rows[0];
+
+    if (!current) {
+      throw new OrderServiceError(
+        "Pedido não encontrado.",
+        404,
+      );
+    }
+
+    if (current.status === "CANCELLED") {
+      throw new OrderServiceError(
+        "Este pedido já foi cancelado.",
+        409,
+      );
+    }
+
+    if (current.status !== "PENDING") {
+      throw new OrderServiceError(
+        "O pedido já foi confirmado ou está em andamento e não pode mais ser cancelado.",
+        409,
+      );
+    }
+
+    // Consulta o relógio real do banco DEPOIS
+    // de adquirir o bloqueio da linha.
+    //
+    // clock_timestamp() considera o horário
+    // atual, mesmo que a transação tenha
+    // aguardado outra operação.
+    const deadlineResult = await client.query<{
+      canCancel: boolean;
+    }>(
+      `
+      SELECT (
+        clock_timestamp() >= "createdAt"
+        AND clock_timestamp() <
+          "createdAt" + INTERVAL '5 minutes'
+      ) AS "canCancel"
+      FROM public."Order"
+      WHERE id = $1
+      `,
+      [orderId],
+    );
+
+    if (!deadlineResult.rows[0]?.canCancel) {
+      throw new OrderServiceError(
+        "O prazo de 5 minutos para cancelar este pedido foi encerrado.",
+        409,
+      );
+    }
+
+    // Atualiza o pedido e registra o
+    // horário do cancelamento.
+    await client.query(
+      `
+      UPDATE public."Order"
+      SET
+        status = 'CANCELLED',
+        "cancelledAt" = clock_timestamp(),
+        "updatedAt" = clock_timestamp()
+      WHERE id = $1
+      `,
+      [orderId],
+    );
+
+    // Reutiliza a função existente para
+    // devolver os produtos ao estoque.
+    await restoreOrderStock(
+      client,
+      orderId,
+    );
+
+    const order = await findOrderWithClient(
+      client,
+      orderId,
+    );
+
+    if (!order) {
+      throw new OrderServiceError(
+        "Não foi possível recuperar o pedido cancelado.",
+        500,
+      );
+    }
+
+    await client.query("COMMIT");
+
+    return order;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+

@@ -223,21 +223,36 @@ export function PizzaFlavorSelector({
     );
   }
 
-  function toggleFlavor(id: number) {
-    setSelectedIds((current) => {
-      if (current.includes(id)) {
-        return current.filter(
-          (selectedId) => selectedId !== id,
-        );
-      }
+  
+function toggleFlavor(id: number) {
+  setSelectedIds((current) => {
+    // Se o sabor já está selecionado,
+    // permite desmarcá-lo.
+    if (current.includes(id)) {
+      return current.filter(
+        (selectedId) => selectedId !== id,
+      );
+    }
 
-      if (current.length >= flavorCount) {
-        return current;
-      }
+    // Pizza de um sabor:
+    // substitui automaticamente o anterior.
+    if (flavorCount === 1) {
+      return [id];
+    }
 
+    // Pizza de dois sabores:
+    // adiciona enquanto houver espaço.
+    if (current.length < flavorCount) {
       return [...current, id];
-    });
-  }
+    }
+
+    // Com dois sabores preenchidos,
+    // mantém a seleção até o cliente
+    // escolher qual remover.
+    return current;
+  });
+}
+
 
   function handleContinue() {
     if (!canContinue || !onContinue) return;
@@ -398,7 +413,7 @@ export function PizzaFlavorSelector({
                   key={flavor.id}
                   type="button"
                   aria-pressed={selected}
-                  disabled={reachedLimit}
+                  disabled={flavorCount > 1 && reachedLimit}
                   onClick={() =>
                     toggleFlavor(flavor.id)
                   }

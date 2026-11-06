@@ -1,19 +1,15 @@
-
 import {
-  useRef,
+  useEffect,
   useState,
-  type ChangeEvent,
   type FormEvent,
 } from "react";
 
 import { useSession } from "../../../lib/auth-client";
 
 import {
-  Camera,
   Check,
   CheckCircle2,
   ChevronRight,
-  ImagePlus,
   MapPin,
   MessageCircle,
   Navigation,
@@ -23,7 +19,6 @@ import {
   ShieldCheck,
   Smartphone,
   UserRound,
-  X,
 } from "lucide-react";
 
 import { DeliveryAddressSheet } from "../../cart/components/DeliveryAddressSheet";
@@ -33,30 +28,22 @@ import type {
   ValidatedDeliveryAddress,
 } from "../../cart/delivery/deliveryAddress.types";
 
+import {
+  getCustomerProfile,
+  saveCustomerProfile,
+} from "../api/customer-profile.api";
+
 // ============================================
 // TIPOS
 // ============================================
 
 type ProfileTab = "profile" | "phone" | "address";
 
-type CustomerProfile = {
+type ProfileForm = {
   name: string;
-  photo: string;
   phone: string;
   phoneVerified: boolean;
   address: DeliveryAddress | null;
-};
-
-type LegacyProfile = {
-  name?: string;
-  phone?: string;
-  street?: string;
-  number?: string;
-  neighborhood?: string;
-  complement?: string;
-  reference?: string;
-  latitude?: string;
-  longitude?: string;
 };
 
 type ProfileContentProps = {
@@ -79,11 +66,11 @@ const labelClass =
 // FUNÇÕES AUXILIARES
 // ============================================
 
-function digits(value: string) {
+function digits(value: string): string {
   return value.replace(/\D/g, "");
 }
 
-function formatPhone(value: string) {
+function formatPhone(value: string): string {
   const number = digits(value).slice(0, 11);
 
   if (number.length <= 2) return number;
@@ -96,110 +83,6 @@ function formatPhone(value: string) {
     /^(\d{2})(\d{5})(\d{1,4})$/,
     "($1) $2-$3",
   );
-}
-
-function restoreAddress(
-  value: unknown,
-): DeliveryAddress | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const data = value as Partial<DeliveryAddress>;
-  const coords = data.coordinates;
-
-  if (
-    !data.street ||
-    !data.number ||
-    !data.neighborhood ||
-    !coords ||
-    !Number.isFinite(coords.latitude) ||
-    !Number.isFinite(coords.longitude)
-  ) {
-    return null;
-  }
-
-  return {
-    street: data.street,
-    number: data.number,
-    neighborhood: data.neighborhood,
-    complement: data.complement ?? "",
-    city: "Rebouças",
-    state: "PR",
-    coordinates: {
-      latitude: coords.latitude,
-      longitude: coords.longitude,
-    },
-  };
-}
-
-function migrateLegacyAddress(
-  data: LegacyProfile,
-): DeliveryAddress | null {
-  const latitude = Number(data.latitude);
-  const longitude = Number(data.longitude);
-
-  if (
-    !data.street ||
-    !data.number ||
-    !data.neighborhood ||
-    !data.latitude ||
-    !data.longitude ||
-    !Number.isFinite(latitude) ||
-    !Number.isFinite(longitude)
-  ) {
-    return null;
-  }
-
-  return {
-    street: data.street,
-    number: data.number,
-    neighborhood: data.neighborhood,
-    complement:
-      data.complement || data.reference || "",
-    city: "Rebouças",
-    state: "PR",
-    coordinates: {
-      latitude,
-      longitude,
-    },
-  };
-}
-
-function loadCustomerProfile(
-  userId: string,
-  googleName: string,
-): CustomerProfile {
-  let saved: Partial<CustomerProfile> &
-    LegacyProfile = {};
-
-  try {
-    const raw = localStorage.getItem(
-      `customer-profile-demo:${userId}`,
-    );
-
-    if (raw) {
-      saved = JSON.parse(raw);
-    }
-  } catch {
-    // Mantém o perfil acessível.
-  }
-
-  return {
-    name: saved.name?.trim() || googleName,
-    photo:
-      typeof saved.photo === "string"
-        ? saved.photo
-        : "",
-    phone:
-      typeof saved.phone === "string"
-        ? formatPhone(saved.phone)
-        : "",
-    phoneVerified: false,
-    address:
-      restoreAddress(saved.address) ??
-      migrateLegacyAddress(saved),
-  };
 }
 
 // ============================================
@@ -237,89 +120,79 @@ function CustomerDashboardProfileContent({
   googleName,
   googleImage,
 }: ProfileContentProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [activeTab, setActiveTab] =
     useState<ProfileTab>("profile");
 
   const [profile, setProfile] =
-    useState<CustomerProfile>(() =>
-      loadCustomerProfile(userId, googleName),
-    );
+    useState<ProfileForm>({
+      name: googleName,
+      phone: "",
+      phoneVerified: false,
+      address: null,
+    });
+
+  const [photoUrl, setPhotoUrl] = useState(googleImage);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   const [mapOpen, setMapOpen] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [verificationCode, setVerificationCode] =
     useState("");
-
-  const [phoneMessage, setPhoneMessage] =
-    useState("");
-  const [saveMessage, setSaveMessage] =
-    useState("");
-  const [photoMessage, setPhotoMessage] =
-    useState("");
-
-  const displayPhoto = profile.photo || googleImage;
+  const [phoneMessage, setPhoneMessage] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
 
   // ==========================================
-  // FOTO
+  // CARREGAR PERFIL NO NEON
   // ==========================================
 
-  function handlePhotoChange(
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = event.target.files?.[0];
+  useEffect(() => {
+    const controller = new AbortController();
 
-    if (!file) return;
+    async function loadProfile() {
+      setIsLoading(true);
+      setLoadError("");
 
-    if (
-      !["image/jpeg", "image/png", "image/webp"].includes(
-        file.type,
-      )
-    ) {
-      setPhotoMessage(
-        "Selecione uma imagem JPG, PNG ou WebP.",
-      );
-      event.target.value = "";
-      return;
+      try {
+        const data = await getCustomerProfile(
+          controller.signal,
+        );
+
+        if (controller.signal.aborted) return;
+
+        setProfile({
+          name: data.name || googleName,
+          phone: formatPhone(data.phone),
+          phoneVerified: false,
+          address: data.address,
+        });
+
+        setPhotoUrl(data.photoUrl || googleImage);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível carregar o perfil.",
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setPhotoMessage(
-        "A foto deve ter no máximo 2 MB.",
-      );
-      event.target.value = "";
-      return;
-    }
+    void loadProfile();
 
-    const reader = new FileReader();
+    return () => controller.abort();
+  }, [userId, googleName, googleImage]);
 
-    reader.onload = () => {
-      if (typeof reader.result !== "string") return;
-
-      setProfile((current) => ({
-        ...current,
-        photo: reader.result as string,
-      }));
-
-      setPhotoMessage(
-        "Foto selecionada. Salve para confirmar.",
-      );
-      setSaveMessage("");
-    };
-
-    reader.onerror = () => {
-      setPhotoMessage(
-        "Não foi possível carregar a imagem.",
-      );
-    };
-
-    reader.readAsDataURL(file);
-    event.target.value = "";
-  }
+  const displayPhoto = photoUrl || googleImage;
 
   // ==========================================
-  // TELEFONE
+  // TELEFONE (VERIFICAÇÃO DEMONSTRATIVA)
   // ==========================================
 
   function handlePhoneChange(value: string) {
@@ -362,7 +235,6 @@ function CustomerDashboardProfileContent({
 
     setCodeSent(false);
     setVerificationCode("");
-
     setPhoneMessage(
       "Número validado apenas nesta demonstração.",
     );
@@ -404,51 +276,71 @@ function CustomerDashboardProfileContent({
   }
 
   // ==========================================
-  // SALVAR
+  // SALVAR PERFIL NO NEON
   // ==========================================
 
-  function handleSave(
+  async function handleSave(
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
-    if (!profile.name.trim()) {
+    if (isSaving || isLoading || loadError) return;
+
+    const name = profile.name.trim();
+    const phone = digits(profile.phone);
+
+    if (!name) {
       setSaveMessage("Informe seu nome.");
       return;
     }
 
-    if (
-      profile.phone &&
-      digits(profile.phone).length !== 11
-    ) {
+    if (name.length > 100) {
+      setSaveMessage(
+        "O nome deve ter no máximo 100 caracteres.",
+      );
+      return;
+    }
+
+    if (phone && phone.length !== 11) {
       setSaveMessage(
         "Informe um celular válido com DDD.",
       );
       return;
     }
 
-    try {
-      localStorage.setItem(
-        `customer-profile-demo:${userId}`,
-        JSON.stringify({
-          ...profile,
-          name: profile.name.trim(),
-          phoneVerified: false,
-        }),
-      );
+    setIsSaving(true);
+    setSaveMessage("");
 
+    try {
+      const savedProfile = await saveCustomerProfile({
+        name,
+        phone,
+        photoUrl: null,
+        address: profile.address,
+      });
+
+      setProfile((current) => ({
+        ...current,
+        name: savedProfile.name,
+        phone: formatPhone(savedProfile.phone),
+        address: savedProfile.address,
+      }));
+
+      setPhotoUrl(savedProfile.photoUrl || googleImage);
+      setSaveMessage("Alterações salvas com sucesso!");
+    } catch (error) {
       setSaveMessage(
-        "Alterações salvas neste navegador.",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar as alterações.",
       );
-    } catch {
-      setSaveMessage(
-        "Não foi possível salvar as alterações.",
-      );
+    } finally {
+      setIsSaving(false);
     }
   }
 
   // ==========================================
-  // NAVEGAÇÃO
+  // ABAS
   // ==========================================
 
   const tabs = [
@@ -481,43 +373,66 @@ function CustomerDashboardProfileContent({
     },
   ];
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-64 items-center justify-center rounded-2xl border border-slate-200 bg-white p-8">
+        <div className="text-center">
+          <div className="mx-auto size-9 animate-spin rounded-full border-4 border-slate-200 border-t-sky-600" />
+          <p className="mt-4 text-sm font-medium text-slate-600">
+            Carregando seu perfil...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
+        <h3 className="font-bold text-red-900">
+          Não foi possível carregar seu perfil
+        </h3>
+        <p className="mt-2 text-sm text-red-700">
+          {loadError}
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-4 rounded-xl bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-col gap-4 lg:h-full lg:gap-5">
-      
-{/* =====================================
-    CABEÇALHO COMPACTO
-===================================== */}
+      {/* =====================================
+          CABEÇALHO COMPACTO
+      ===================================== */}
 
-<section className="relative shrink-0 overflow-hidden rounded-2xl bg-[#20354b] px-5 py-4 text-white shadow-lg shadow-slate-900/10 sm:px-6">
-  {/* EFEITO DECORATIVO */}
+      <section className="relative shrink-0 overflow-hidden rounded-2xl bg-[#20354b] px-5 py-4 text-white shadow-lg shadow-slate-900/10 sm:px-6">
+        <div className="pointer-events-none absolute -right-12 -top-20 size-48 rounded-full bg-sky-400/10 blur-2xl" />
 
-  <div className="pointer-events-none absolute -right-12 -top-20 size-48 rounded-full bg-sky-400/10 blur-2xl" />
+        <div className="relative flex items-center gap-4">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sky-200">
+            <Settings2 size={21} />
+          </div>
 
-  <div className="relative flex items-center gap-4">
-    {/* ÍCONE */}
-
-    <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sky-200">
-      <Settings2 size={21} />
-    </div>
-
-    {/* INFORMAÇÕES */}
-
-    <div className="min-w-0 flex-1">
-      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-sky-200">
-        Minha conta
-      </p>
-
-      <h2 className="mt-0.5 text-lg font-black leading-tight sm:text-xl">
-        Configurações do perfil
-      </h2>
-
-      <p className="mt-1 text-xs leading-relaxed text-slate-300">
-        Gerencie seus dados, telefone e endereço.
-      </p>
-    </div>
-  </div>
-</section>
-
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-sky-200">
+              Minha conta
+            </p>
+            <h2 className="mt-0.5 text-lg font-black leading-tight sm:text-xl">
+              Configurações do perfil
+            </h2>
+            <p className="mt-1 text-xs leading-relaxed text-slate-300">
+              Gerencie seus dados, telefone e endereço.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* =====================================
           ABAS
@@ -535,9 +450,7 @@ function CustomerDashboardProfileContent({
             <button
               key={tab.id}
               type="button"
-              aria-current={
-                selected ? "page" : undefined
-              }
+              aria-current={selected ? "page" : undefined}
               onClick={() => {
                 setActiveTab(tab.id);
                 setSaveMessage("");
@@ -562,7 +475,6 @@ function CustomerDashboardProfileContent({
                 <span className="block text-xs font-extrabold sm:text-sm">
                   {tab.label}
                 </span>
-
                 <span className="mt-0.5 hidden text-xs opacity-70 sm:block">
                   {tab.description}
                 </span>
@@ -584,9 +496,9 @@ function CustomerDashboardProfileContent({
       ===================================== */}
 
       <form
-  onSubmit={handleSave}
-  className="flex min-h-0 flex-1 flex-col gap-3"
->
+        onSubmit={handleSave}
+        className="flex min-h-0 flex-1 flex-col gap-3"
+      >
         {/* ===================================
             ABA PERFIL
         =================================== */}
@@ -603,7 +515,6 @@ function CustomerDashboardProfileContent({
                   <h3 className="text-lg font-black text-slate-900">
                     Dados pessoais
                   </h3>
-
                   <p className="mt-1 text-sm text-slate-500">
                     Sua identidade dentro do restaurante.
                   </p>
@@ -615,87 +526,27 @@ function CustomerDashboardProfileContent({
               {/* FOTO */}
 
               <div className="flex flex-col items-center gap-5 rounded-2xl bg-slate-50 p-5 sm:flex-row">
-                <div className="relative shrink-0">
-                  <div className="flex size-28 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-indigo-100 text-indigo-700 shadow-md">
-                    {displayPhoto ? (
-                      <img
-                        src={displayPhoto}
-                        alt="Foto do perfil"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <UserRound size={46} />
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      fileInputRef.current?.click()
-                    }
-                    aria-label="Alterar foto"
-                    className="absolute bottom-0 right-0 flex size-9 items-center justify-center rounded-full border-2 border-white bg-indigo-600 text-white shadow-md transition hover:bg-indigo-700"
-                  >
-                    <Camera size={17} />
-                  </button>
-
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handlePhotoChange}
-                    className="hidden"
-                    aria-label="Selecionar foto"
-                  />
+                <div className="flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-indigo-100 text-indigo-700 shadow-md">
+                  {displayPhoto ? (
+                    <img
+                      src={displayPhoto}
+                      alt="Foto do perfil"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <UserRound size={46} />
+                  )}
                 </div>
 
                 <div className="flex-1 text-center sm:text-left">
                   <h4 className="font-black text-slate-900">
                     Sua foto de perfil
                   </h4>
-
                   <p className="mt-1 text-sm text-slate-500">
-                    Utilizamos sua foto do Google
-                    até você escolher outra.
+                    Atualmente utilizamos sua foto da conta Google.
                   </p>
-
-                  <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        fileInputRef.current?.click()
-                      }
-                      className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-indigo-700"
-                    >
-                      <ImagePlus size={16} />
-                      Alterar foto
-                    </button>
-
-                    {profile.photo && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfile((current) => ({
-                            ...current,
-                            photo: "",
-                          }));
-                          setPhotoMessage("");
-                          setSaveMessage("");
-                        }}
-                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100"
-                      >
-                        <X size={15} />
-                        Usar foto Google
-                      </button>
-                    )}
-                  </div>
-
-                  <p
-                    role="status"
-                    className="mt-3 text-xs text-slate-400"
-                  >
-                    {photoMessage ||
-                      "JPG, PNG ou WebP. Máximo de 2 MB."}
+                  <p className="mt-3 text-xs text-slate-400">
+                    A opção de enviar uma foto personalizada será disponibilizada posteriormente.
                   </p>
                 </div>
               </div>
@@ -713,7 +564,7 @@ function CustomerDashboardProfileContent({
                 <input
                   id="profile-name"
                   required
-                  maxLength={120}
+                  maxLength={100}
                   autoComplete="name"
                   value={profile.name}
                   onChange={(event) => {
@@ -728,8 +579,7 @@ function CustomerDashboardProfileContent({
                 />
 
                 <p className="mt-2 text-xs text-slate-400">
-                  Este nome será utilizado para
-                  identificar seus pedidos.
+                  Este nome será utilizado para identificar seus pedidos.
                 </p>
               </div>
             </div>
@@ -752,7 +602,6 @@ function CustomerDashboardProfileContent({
                   <h3 className="text-lg font-black text-slate-900">
                     Telefone e WhatsApp
                   </h3>
-
                   <p className="mt-1 text-sm text-slate-500">
                     Receba atualizações sobre seus pedidos.
                   </p>
@@ -777,9 +626,7 @@ function CustomerDashboardProfileContent({
                     autoComplete="tel-national"
                     value={profile.phone}
                     onChange={(event) =>
-                      handlePhoneChange(
-                        event.target.value,
-                      )
+                      handlePhoneChange(event.target.value)
                     }
                     placeholder="(42) 99999-9999"
                     className={inputClass}
@@ -797,9 +644,7 @@ function CustomerDashboardProfileContent({
                       className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-700"
                     >
                       <ShieldCheck size={18} />
-                      {codeSent
-                        ? "Reenviar código"
-                        : "Verificar"}
+                      {codeSent ? "Reenviar código" : "Verificar"}
                     </button>
                   )}
                 </div>
@@ -821,9 +666,7 @@ function CustomerDashboardProfileContent({
                         value={verificationCode}
                         onChange={(event) =>
                           setVerificationCode(
-                            digits(
-                              event.target.value,
-                            ).slice(0, 6),
+                            digits(event.target.value).slice(0, 6),
                           )
                         }
                         placeholder="6 dígitos"
@@ -863,24 +706,19 @@ function CustomerDashboardProfileContent({
                     <h4 className="font-black text-emerald-950">
                       Acompanhe seu pedido pelo WhatsApp
                     </h4>
-
                     <p className="mt-2 text-sm leading-relaxed text-emerald-900/75">
-                      Este número será utilizado para
-                      receber notificações automáticas
-                      do Espetinhos João Paulo quando
-                      seu pedido for confirmado,
-                      estiver em preparo, ficar pronto
-                      ou sair para entrega, após a
-                      ativação desse serviço.
+                      Este número será utilizado para receber notificações automáticas
+                      do Espetinhos João Paulo quando seu pedido for confirmado,
+                      estiver em preparo, ficar pronto ou sair para entrega,
+                      após a ativação desse serviço.
                     </p>
                   </div>
                 </div>
               </div>
 
               <p className="text-xs text-slate-400">
-                A verificação por código ainda está
-                em modo de demonstração. Nenhuma
-                mensagem real é enviada nesta etapa.
+                A verificação por código ainda está em modo de demonstração.
+                Nenhuma mensagem real é enviada nesta etapa.
               </p>
             </div>
           </section>
@@ -902,7 +740,6 @@ function CustomerDashboardProfileContent({
                   <h3 className="text-lg font-black text-slate-900">
                     Meu endereço
                   </h3>
-
                   <p className="mt-1 text-sm text-slate-500">
                     Gerencie seu endereço de entrega.
                   </p>
@@ -921,7 +758,6 @@ function CustomerDashboardProfileContent({
                         size={19}
                         className="text-emerald-600"
                       />
-
                       <span className="text-sm font-bold text-emerald-800">
                         Localização confirmada
                       </span>
@@ -959,21 +795,17 @@ function CustomerDashboardProfileContent({
 
                     <input
                       id="profile-complement"
-                      value={
-                        profile.address.complement
-                      }
+                      maxLength={300}
+                      value={profile.address.complement}
                       onChange={(event) =>
-                        handleComplementChange(
-                          event.target.value,
-                        )
+                        handleComplementChange(event.target.value)
                       }
                       placeholder="Ex.: Casa azul, próximo ao mercado"
                       className={inputClass}
                     />
 
                     <p className="mt-2 text-xs text-slate-500">
-                      Alterar este campo não modifica
-                      a localização do pino.
+                      Alterar este campo não modifica a localização do pino.
                     </p>
                   </div>
 
@@ -1001,8 +833,7 @@ function CustomerDashboardProfileContent({
                     </h4>
 
                     <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
-                      Informe rua, número, bairro e
-                      complemento e confirme no mapa
+                      Informe rua, número, bairro e complemento e confirme no mapa
                       onde devemos entregar.
                     </p>
                   </div>
@@ -1032,16 +863,25 @@ function CustomerDashboardProfileContent({
             aria-live="polite"
             className="text-sm font-medium text-slate-600"
           >
-            {saveMessage ||
-              "Salve suas alterações antes de sair."}
+            {saveMessage || "Salve suas alterações antes de sair."}
           </p>
 
           <button
             type="submit"
-            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#20354b] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#304d6a]"
+            disabled={isSaving}
+            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#20354b] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#304d6a] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <Save size={18} />
-            Salvar alterações
+            {isSaving ? (
+              <>
+                <span className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                Salvando...
+              </>
+            ) : (
+              <>
+                <Save size={18} />
+                Salvar alterações
+              </>
+            )}
           </button>
         </div>
       </form>

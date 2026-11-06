@@ -12,6 +12,10 @@ import {
   CheckCircle2,
   ChevronRight,
   LoaderCircle,
+  ExternalLink,
+  MapPin,
+  MessageCircle,
+  Phone,
   RefreshCw,
   Save,
   Search,
@@ -31,6 +35,7 @@ import {
   unblockAdminCustomer,
   updateAdminCustomerName,
   type AdminCustomer,
+  type AdminCustomerDetails,
   type AdminCustomerStats,
 } from "../api/admin-customers.api";
 
@@ -200,7 +205,7 @@ function CustomerDetails({
   onClose,
   onUpdated,
 }: {
-  customer: AdminCustomer;
+  customer: AdminCustomerDetails;
   onClose: () => void;
   onUpdated: (customer: AdminCustomer) => void;
 }) {
@@ -404,6 +409,115 @@ function CustomerDetails({
                   customer.createdAt,
                 )}
               </p>
+            </div>
+          </section>
+
+          {/* CONTATO E ENTREGA */}
+
+          <section className="rounded-2xl border border-stone-200 bg-white p-5">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+                <MapPin size={21} />
+              </span>
+
+              <div>
+                <h4 className="font-black text-stone-900">
+                  Contato e entrega
+                </h4>
+                <p className="mt-1 text-xs text-stone-500">
+                  Informações cadastradas pelo cliente.
+                </p>
+              </div>
+            </div>
+
+            {/* TELEFONE */}
+
+            <div className="mt-5 border-t border-stone-100 pt-4">
+              <div className="flex items-center gap-2">
+                <Phone size={16} className="text-stone-500" />
+                <p className="text-xs font-bold uppercase tracking-wide text-stone-500">
+                  Telefone / WhatsApp
+                </p>
+              </div>
+
+              {customer.phone ? (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-stone-900">
+                    {customer.phone}
+                  </p>
+
+                  <a
+                    href={`https://wa.me/55${customer.phone.replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-50 px-3 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
+                  >
+                    <MessageCircle size={16} />
+                    Abrir WhatsApp
+                    <ExternalLink size={13} />
+                  </a>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-stone-500">
+                  Telefone não cadastrado.
+                </p>
+              )}
+
+              <p className="mt-2 text-xs text-stone-400">
+                Número ainda não verificado.
+              </p>
+            </div>
+
+            {/* ENDEREÇO */}
+
+            <div className="mt-5 border-t border-stone-100 pt-4">
+              <div className="flex items-center gap-2">
+                <MapPin size={16} className="text-stone-500" />
+                <p className="text-xs font-bold uppercase tracking-wide text-stone-500">
+                  Endereço de entrega
+                </p>
+              </div>
+
+              {customer.address ? (
+                <div className="mt-3 space-y-3">
+                  <div className="rounded-xl bg-sky-50/70 p-4">
+                    <p className="text-sm font-bold text-stone-900">
+                      {customer.address.street}, {customer.address.number}
+                    </p>
+                    <p className="mt-1 text-sm text-stone-600">
+                      {customer.address.neighborhood} — {customer.address.city}/{customer.address.state}
+                    </p>
+                    {customer.address.complement && (
+                      <p className="mt-3 border-t border-sky-100 pt-3 text-sm text-stone-600">
+                        <span className="font-semibold">Complemento:</span>{" "}
+                        {customer.address.complement}
+                      </p>
+                    )}
+                  </div>
+
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                      `${customer.address.coordinates.latitude},${customer.address.coordinates.longitude}`,
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-sky-600 px-4 text-xs font-bold text-white transition hover:bg-sky-700"
+                  >
+                    <MapPin size={16} />
+                    Visualizar no Google Maps
+                    <ExternalLink size={14} />
+                  </a>
+                </div>
+              ) : (
+                <div className="mt-3 rounded-xl border border-dashed border-stone-200 bg-stone-50 p-4">
+                  <p className="text-sm font-medium text-stone-600">
+                    Nenhum endereço cadastrado.
+                  </p>
+                  <p className="mt-1 text-xs text-stone-400">
+                    O cliente ainda não informou uma localização para entrega.
+                  </p>
+                </div>
+              )}
             </div>
           </section>
 
@@ -669,7 +783,7 @@ export function AdminDashboardCustomers() {
     useState<CustomerFilter>("ALL");
 
   const [selectedCustomer, setSelectedCustomer] =
-    useState<AdminCustomer | null>(null);
+    useState<AdminCustomerDetails | null>(null);
 
   const [openingId, setOpeningId] =
     useState<string | null>(null);
@@ -782,7 +896,11 @@ useEffect(() => {
       ),
     );
 
-    setSelectedCustomer(updated);
+    setSelectedCustomer((current) =>
+      current?.id === updated.id
+        ? { ...current, ...updated }
+        : current,
+    );
 
     setStats((current) => {
       if (!current) return current;
