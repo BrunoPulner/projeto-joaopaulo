@@ -42,6 +42,9 @@ export type CartPizzaFlavor = {
   name: string;
   additionalPriceCents: number;
   isPremium: boolean;
+
+  // Ingredientes removidos especificamente deste sabor
+  removedIngredients?: RemovedIngredient[];
 };
 
 export type CartPizzaAddon = {

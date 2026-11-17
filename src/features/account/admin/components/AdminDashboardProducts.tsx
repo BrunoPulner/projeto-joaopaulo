@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -261,6 +262,8 @@ export function AdminDashboardProducts() {
     useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
+
+const editFormRef = useRef<HTMLDivElement | null>(null);
 
   const [editingId, setEditingId] = useState<
     number | null
@@ -658,6 +661,15 @@ export function AdminDashboardProducts() {
     });
 
     setFormOpen(true);
+
+window.requestAnimationFrame(() => {
+  window.requestAnimationFrame(() => {
+    editFormRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+});
   }
 
   // ==========================================
@@ -1164,6 +1176,11 @@ export function AdminDashboardProducts() {
           }
         />
       )}
+
+      <div
+  ref={editFormRef}
+  className="scroll-mt-24"
+/>
 
       {/* FORMULÁRIO DE PIZZAS */}
 

@@ -525,7 +525,7 @@ async function preparePizzaItem(
     throw new OrderServiceError("Quantidade de pizzas inválida.");
   }
   if ((item.addons?.length ?? 0) > 0 || (item.removedIngredientIds?.length ?? 0) > 0) {
-    throw new OrderServiceError("Para pizzas, informe adicionais em pizza.addonIds; ingredientes removidos não são aceitos neste fluxo.");
+    throw new OrderServiceError("Para pizzas, informe adicionais em pizza.addonIds e remoções em pizza.flavorCustomizations.");
   }
 
   const product = await getProduct(client, item.productId);
@@ -593,6 +593,65 @@ async function preparePizzaItem(
       premiumAdditionalCents: flavor.isPremium ? flavor.premiumAdditionalCents : 0,
     };
   });
+
+  // ==========================================
+  // INGREDIENTES REMOVIDOS POR SABOR
+  // ==========================================
+
+  const flavorCustomizations = config.flavorCustomizations ?? [];
+  const selectedFlavorIds = new Set(config.flavorIds);
+  const customizedFlavorIds = new Set<number>();
+  const removedByFlavor = new Map<number, OrderRemovedIngredientSnapshot[]>();
+
+  for (const customization of flavorCustomizations) {
+    const { flavorId, removedIngredientIds } = customization;
+
+    if (!selectedFlavorIds.has(flavorId)) {
+      throw new OrderServiceError("Não é possível personalizar um sabor não selecionado.");
+    }
+
+    if (customizedFlavorIds.has(flavorId)) {
+      throw new OrderServiceError("Há personalizações duplicadas para o mesmo sabor.");
+    }
+    customizedFlavorIds.add(flavorId);
+
+    if (new Set(removedIngredientIds).size !== removedIngredientIds.length) {
+      throw new OrderServiceError("Existem ingredientes removidos duplicados.");
+    }
+
+    if (removedIngredientIds.length === 0) {
+      removedByFlavor.set(flavorId, []);
+      continue;
+    }
+
+    // IMPORTANTE: conferir os nomes reais da tabela e colunas
+    // com o serviço de cadastro de ingredientes dos sabores.
+    const result = await client.query<IngredientRow>(
+      `SELECT id, name, "isRemovable"
+       FROM public."PizzaFlavorIngredient"
+       WHERE "pizzaFlavorId" = $1
+         AND id = ANY($2::integer[])`,
+      [flavorId, removedIngredientIds],
+    );
+
+    if (result.rows.length !== removedIngredientIds.length) {
+      throw new OrderServiceError("Um ou mais ingredientes não pertencem ao sabor selecionado.");
+    }
+
+    if (result.rows.some((ingredient) => !ingredient.isRemovable)) {
+      throw new OrderServiceError("Um ingrediente deste sabor não pode ser removido.");
+    }
+
+    removedByFlavor.set(
+      flavorId,
+      result.rows.map(({ id, name }) => ({ id, name })),
+    );
+  }
+
+  const flavorsWithCustomizations = flavors.map((flavor) => ({
+    ...flavor,
+    removedIngredients: removedByFlavor.get(flavor.id) ?? [],
+  }));
 
   // Política: um adicional precisa estar vinculado a pelo menos um sabor selecionado.
   
@@ -679,7 +738,7 @@ async function preparePizzaItem(
     removedIngredients: [],
     pizza: {
       size: { id: size.id, name: size.name, basePriceCents: size.basePriceCents },
-      flavors,
+      flavors: flavorsWithCustomizations,
       addons: pizzaAddons,
     },
   };

@@ -46,7 +46,7 @@ function getAddonsSignature(
   addons: CartAddon[] = [],
 ): string {
   return JSON.stringify(
-    [...addons]
+    addons
       .map((addon) => ({
         id: addon.id,
         quantity: addon.quantity,
@@ -55,12 +55,15 @@ function getAddonsSignature(
   );
 }
 
+// ============================================
+// IDENTIFICAÇÃO DOS INGREDIENTES REMOVIDOS
+// ============================================
 
 function getRemovedIngredientsSignature(
   ingredients: AddCartItemInput["removedIngredients"] = [],
 ): string {
   return JSON.stringify(
-    [...ingredients]
+    (ingredients ?? [])
       .map((ingredient) => ingredient.id)
       .sort((a, b) => a - b),
   );
@@ -75,9 +78,18 @@ function getPizzaSignature(
 ): string {
   if (!pizza) return "";
 
-  const flavorIds = pizza.flavors
-    .map((flavor) => flavor.id)
-    .sort((a, b) => a - b);
+  // Cada sabor possui sua própria configuração
+  // de ingredientes removidos.
+  const flavors = pizza.flavors
+    .map((flavor) => ({
+      id: flavor.id,
+      removedIngredientIds: (
+        flavor.removedIngredients ?? []
+      )
+        .map((ingredient) => ingredient.id)
+        .sort((a, b) => a - b),
+    }))
+    .sort((a, b) => a.id - b.id);
 
   const addonIds = pizza.addons
     .map((addon) => addon.id)
@@ -85,7 +97,7 @@ function getPizzaSignature(
 
   return JSON.stringify({
     sizeId: pizza.size.id,
-    flavorIds,
+    flavors,
     addonIds,
   });
 }
@@ -106,8 +118,8 @@ function createItemId(
     removedIngredients,
   } = input;
 
-  const normalizedNotes = notes
-    .toLocaleLowerCase("pt-BR");
+  const normalizedNotes =
+    notes.toLocaleLowerCase("pt-BR");
 
   return JSON.stringify({
     productId: product.id,
@@ -115,10 +127,40 @@ function createItemId(
     notes: normalizedNotes,
     addons: getAddonsSignature(addons),
     pizza: getPizzaSignature(pizza),
-    removedIngredients: getRemovedIngredientsSignature(
-  removedIngredients,
-),
+    removedIngredients:
+      getRemovedIngredientsSignature(
+        removedIngredients,
+      ),
   });
+}
+
+// ============================================
+// CÓPIA DA CONFIGURAÇÃO DA PIZZA
+// ============================================
+
+function copyPizzaConfiguration(
+  pizza?: CartPizzaConfiguration,
+): CartPizzaConfiguration | undefined {
+  if (!pizza) return undefined;
+
+  return {
+    size: { ...pizza.size },
+
+    flavors: pizza.flavors.map((flavor) => ({
+      ...flavor,
+
+      removedIngredients: (
+        flavor.removedIngredients ?? []
+      ).map((ingredient) => ({
+        id: ingredient.id,
+        name: ingredient.name,
+      })),
+    })),
+
+    addons: pizza.addons.map((addon) => ({
+      ...addon,
+    })),
+  };
 }
 
 // ============================================
@@ -131,7 +173,6 @@ export function CartProvider({
   children: ReactNode;
 }) {
   const [items, setItems] = useState<CartItem[]>([]);
-
   const [open, setOpen] = useState(false);
 
   // ==========================================
@@ -159,9 +200,7 @@ export function CartProvider({
 
     const quantityInCart = currentItems.reduce(
       (total, item) => {
-        if (
-          item.product.id !== product.id
-        ) {
+        if (item.product.id !== product.id) {
           return total;
         }
 
@@ -249,14 +288,23 @@ export function CartProvider({
         notes: normalizedNotes,
         type,
         unitPriceCents,
-        addons,
-        pizza,
-        removedIngredients: removedIngredients
-  ? removedIngredients.map((ingredient) => ({
-      id: ingredient.id,
-      name: ingredient.name,
-    }))
-  : [],
+
+        addons: addons?.map((addon) => ({
+          ...addon,
+        })),
+
+        // Preserva os ingredientes removidos
+        // individualmente de cada sabor.
+        pizza: copyPizzaConfiguration(pizza),
+
+        // Ingredientes removidos de produtos
+        // convencionais (lanches, pastéis etc.).
+        removedIngredients: (
+          removedIngredients ?? []
+        ).map((ingredient) => ({
+          id: ingredient.id,
+          name: ingredient.name,
+        })),
       };
 
       return [...current, newItem];
@@ -332,13 +380,13 @@ export function CartProvider({
     );
   }
 
-  // ============================================
-// LIMPAR CARRINHO
-// ============================================
+  // ==========================================
+  // LIMPAR CARRINHO
+  // ==========================================
 
-function clearCart() {
-  setItems([]);
-}
+  function clearCart() {
+    setItems([]);
+  }
 
   // ==========================================
   // ABRIR SACOLA

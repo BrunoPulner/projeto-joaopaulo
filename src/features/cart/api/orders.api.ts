@@ -1,4 +1,3 @@
-
 import type { CartItem } from "../cartTypes";
 import type { DeliveryAddress } from "../delivery/deliveryAddress.types";
 
@@ -7,8 +6,7 @@ import type { DeliveryAddress } from "../delivery/deliveryAddress.types";
 // ============================================
 
 const API_BASE_URL = (
-  import.meta.env.VITE_API_URL ??
-  "http://localhost:3000"
+  import.meta.env.VITE_API_URL ?? "http://localhost:3000"
 ).replace(/\/$/, "");
 
 const ORDERS_URL = `${API_BASE_URL}/api/orders`;
@@ -17,9 +15,7 @@ const ORDERS_URL = `${API_BASE_URL}/api/orders`;
 // TIPAGENS DO PEDIDO
 // ============================================
 
-export type OrderFulfillmentType =
-  | "DELIVERY"
-  | "PICKUP";
+export type OrderFulfillmentType = "DELIVERY" | "PICKUP";
 
 export type OrderPaymentMethod =
   | "UNDEFINED"
@@ -28,23 +24,23 @@ export type OrderPaymentMethod =
   | "CARD_ON_DELIVERY"
   | "PIX_ON_DELIVERY";
 
+export type OrderPizzaFlavorCustomizationPayload = {
+  flavorId: number;
+  removedIngredientIds: number[];
+};
+
 export type CreateOrderItemPayload = {
   productId: number;
   quantity: number;
   notes: string;
   type: "PRODUCT" | "PIZZA";
-
-  addons?: {
-    id: number;
-    quantity: number;
-  }[];
-
+  addons?: { id: number; quantity: number }[];
   pizza?: {
     sizeId: number;
     flavorIds: number[];
     addonIds: number[];
+    flavorCustomizations?: OrderPizzaFlavorCustomizationPayload[];
   };
-
   removedIngredientIds?: number[];
 };
 
@@ -70,7 +66,6 @@ export type CreateOrderOptions = {
 // RESPOSTA DA API
 // ============================================
 
-
 export type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
@@ -87,19 +82,22 @@ export type OrderAddonSnapshot = {
   unitPriceCents: number;
 };
 
+export type OrderPizzaFlavorSnapshot = {
+  id: number;
+  name: string;
+  additionalPriceCents: number;
+  isPremium: boolean;
+  premiumAdditionalCents: number;
+  removedIngredients?: { id: number; name: string }[];
+};
+
 export type OrderPizzaSnapshot = {
   size: {
     id: number;
     name: string;
     basePriceCents: number;
   };
-  flavors: {
-    id: number;
-    name: string;
-    additionalPriceCents: number;
-    isPremium: boolean;
-    premiumAdditionalCents: number;
-  }[];
+  flavors: OrderPizzaFlavorSnapshot[];
   addons: {
     id: number;
     name: string;
@@ -120,10 +118,7 @@ export type OrderItemSnapshot = {
   totalPriceCents: number;
   addons: OrderAddonSnapshot[];
   pizza: OrderPizzaSnapshot | null;
-  removedIngredients: {
-    id: number;
-    name: string;
-  }[];
+  removedIngredients: { id: number; name: string }[];
 };
 
 export type CreatedOrder = {
@@ -146,15 +141,11 @@ export type CreatedOrder = {
   cancelledAt: string | null;
 };
 
-
 type ApiResponse<T> = {
   success: boolean;
   message?: string;
   data?: T;
-  errors?: Array<{
-    field: string;
-    message: string;
-  }>;
+  errors?: Array<{ field: string; message: string }>;
 };
 
 // ============================================
@@ -180,13 +171,8 @@ export function cartItemToOrderItem(
 ): CreateOrderItemPayload {
   const productId = Number(item.product.id);
 
-  if (
-    !Number.isSafeInteger(productId) ||
-    productId <= 0
-  ) {
-    throw new Error(
-      "Um produto do carrinho possui ID inválido.",
-    );
+  if (!Number.isSafeInteger(productId) || productId <= 0) {
+    throw new Error("Um produto do carrinho possui ID inválido.");
   }
 
   if (
@@ -194,9 +180,7 @@ export function cartItemToOrderItem(
     item.quantity < 1 ||
     item.quantity > 99
   ) {
-    throw new Error(
-      "A quantidade de um item é inválida.",
-    );
+    throw new Error("A quantidade de um item é inválida.");
   }
 
   const type = item.type ?? "PRODUCT";
@@ -208,46 +192,41 @@ export function cartItemToOrderItem(
     type,
   };
 
-  // ==========================================
-  // PIZZA PERSONALIZADA
-  // ==========================================
-
   if (type === "PIZZA") {
     if (!item.pizza) {
-      throw new Error(
-        "A pizza não possui uma configuração válida.",
-      );
+      throw new Error("A pizza não possui uma configuração válida.");
     }
+
+    const flavorCustomizations = item.pizza.flavors
+      .map((flavor) => ({
+        flavorId: flavor.id,
+        removedIngredientIds: Array.from(
+          new Set((flavor.removedIngredients ?? []).map((ingredient) => ingredient.id)),
+        ).sort((a, b) => a - b),
+      }))
+      .filter((customization) => customization.removedIngredientIds.length > 0)
+      .sort((a, b) => a.flavorId - b.flavorId);
 
     return {
       ...base,
       pizza: {
         sizeId: item.pizza.size.id,
-        flavorIds: item.pizza.flavors.map(
-          (flavor) => flavor.id,
-        ),
-        addonIds: item.pizza.addons.map(
-          (addon) => addon.id,
-        ),
+        flavorIds: item.pizza.flavors.map((flavor) => flavor.id),
+        addonIds: item.pizza.addons.map((addon) => addon.id),
+        ...(flavorCustomizations.length > 0 ? { flavorCustomizations } : {}),
       },
     };
   }
 
-  // ==========================================
-  // PRODUTO CONVENCIONAL
-  // ==========================================
-
   return {
     ...base,
-    addons: (item.addons ?? []).map(
-      (addon) => ({
-        id: addon.id,
-        quantity: addon.quantity,
-      }),
+    addons: (item.addons ?? []).map((addon) => ({
+      id: addon.id,
+      quantity: addon.quantity,
+    })),
+    removedIngredientIds: (item.removedIngredients ?? []).map(
+      (ingredient) => ingredient.id,
     ),
-    removedIngredientIds: (
-      item.removedIngredients ?? []
-    ).map((ingredient) => ingredient.id),
   };
 }
 
@@ -259,39 +238,22 @@ export function buildCreateOrderPayload(
   options: CreateOrderOptions,
 ): CreateOrderPayload {
   if (options.items.length === 0) {
-    throw new Error(
-      "Adicione pelo menos um produto ao carrinho.",
-    );
+    throw new Error("Adicione pelo menos um produto ao carrinho.");
   }
 
-  if (
-    options.fulfillmentType === "DELIVERY" &&
-    !options.deliveryAddress
-  ) {
-    throw new Error(
-      "Confirme o endereço de entrega.",
-    );
+  if (options.fulfillmentType === "DELIVERY" && !options.deliveryAddress) {
+    throw new Error("Confirme o endereço de entrega.");
   }
 
   return {
     idempotencyKey: options.idempotencyKey,
     fulfillmentType: options.fulfillmentType,
-
     ...(options.fulfillmentType === "DELIVERY"
-      ? {
-          deliveryAddress:
-            options.deliveryAddress,
-        }
+      ? { deliveryAddress: options.deliveryAddress }
       : {}),
-
-    paymentMethod:
-      options.paymentMethod ?? "UNDEFINED",
-
+    paymentMethod: options.paymentMethod ?? "UNDEFINED",
     notes: options.notes?.trim() ?? "",
-
-    items: options.items.map(
-      cartItemToOrderItem,
-    ),
+    items: options.items.map(cartItemToOrderItem),
   };
 }
 
@@ -299,14 +261,11 @@ export function buildCreateOrderPayload(
 // INTERPRETAR RESPOSTA
 // ============================================
 
-async function parseOrdersResponse<T>(
-  response: Response,
-): Promise<T> {
+async function parseOrdersResponse<T>(response: Response): Promise<T> {
   let result: ApiResponse<T>;
 
   try {
-    result =
-      (await response.json()) as ApiResponse<T>;
+    result = (await response.json()) as ApiResponse<T>;
   } catch {
     throw new OrdersApiError(
       "O servidor retornou uma resposta inválida.",
@@ -320,9 +279,7 @@ async function parseOrdersResponse<T>(
       .join(" ");
 
     throw new OrdersApiError(
-      validationMessage ||
-        result.message ||
-        "Não foi possível processar o pedido.",
+      validationMessage || result.message || "Não foi possível processar o pedido.",
       response.status,
     );
   }
@@ -345,64 +302,45 @@ export async function createOrder(
   options: CreateOrderOptions,
   signal?: AbortSignal,
 ): Promise<CreatedOrder> {
-  const payload =
-    buildCreateOrderPayload(options);
-
+  const payload = buildCreateOrderPayload(options);
   let response: Response;
 
   try {
     response = await fetch(ORDERS_URL, {
       method: "POST",
       credentials: "include",
-
-      headers: {
-        "Content-Type": "application/json",
-      },
-
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal,
     });
   } catch (error) {
-    if (
-      error instanceof DOMException &&
-      error.name === "AbortError"
-    ) {
+    if (error instanceof DOMException && error.name === "AbortError") {
       throw error;
     }
-
     throw new OrdersApiError(
       "Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.",
       0,
     );
   }
 
-  return parseOrdersResponse<CreatedOrder>(
-    response,
-  );
+  return parseOrdersResponse<CreatedOrder>(response);
 }
 
 // ============================================
 // LISTAR PEDIDOS DO CLIENTE
 // ============================================
 
-
 export async function getMyOrders(
   signal?: AbortSignal,
 ): Promise<CreatedOrder[]> {
-  const response = await fetch(
-    `${ORDERS_URL}/my`,
-    {
-      method: "GET",
-      credentials: "include",
-      signal,
-    },
-  );
+  const response = await fetch(`${ORDERS_URL}/my`, {
+    method: "GET",
+    credentials: "include",
+    signal,
+  });
 
-  return parseOrdersResponse<CreatedOrder[]>(
-    response,
-  );
+  return parseOrdersResponse<CreatedOrder[]>(response);
 }
-
 
 // ============================================
 // CONSULTAR PEDIDO
@@ -412,20 +350,14 @@ export async function getMyOrderById(
   orderId: number,
   signal?: AbortSignal,
 ): Promise<CreatedOrder> {
-  const response = await fetch(
-    `${ORDERS_URL}/${orderId}`,
-    {
-      method: "GET",
-      credentials: "include",
-      signal,
-    },
-  );
+  const response = await fetch(`${ORDERS_URL}/${orderId}`, {
+    method: "GET",
+    credentials: "include",
+    signal,
+  });
 
-  return parseOrdersResponse<CreatedOrder>(
-    response,
-  );
+  return parseOrdersResponse<CreatedOrder>(response);
 }
-
 
 export async function cancelMyOrder(
   orderId: number,
@@ -433,13 +365,10 @@ export async function cancelMyOrder(
   let response: Response;
 
   try {
-    response = await fetch(
-      `${ORDERS_URL}/${orderId}/cancel`,
-      {
-        method: "PATCH",
-        credentials: "include",
-      },
-    );
+    response = await fetch(`${ORDERS_URL}/${orderId}/cancel`, {
+      method: "PATCH",
+      credentials: "include",
+    });
   } catch {
     throw new OrdersApiError(
       "Não foi possível conectar ao servidor para cancelar o pedido.",
@@ -447,7 +376,5 @@ export async function cancelMyOrder(
     );
   }
 
-  return parseOrdersResponse<CreatedOrder>(
-    response,
-  );
+  return parseOrdersResponse<CreatedOrder>(response);
 }

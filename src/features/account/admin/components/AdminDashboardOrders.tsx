@@ -150,10 +150,33 @@ function OrderDetails({
                     <strong className="shrink-0 text-stone-900">{formatOrderPrice(item.totalPriceCents)}</strong>
                   </div>
                   {item.pizza && (
-                    <div className="mt-2 text-xs text-stone-600">
+                    <div className="mt-2 space-y-2 text-xs text-stone-600">
                       <p><strong>Tamanho:</strong> {item.pizza.size.name}</p>
-                      <p><strong>Sabores:</strong> {item.pizza.flavors.map((flavor) => flavor.name).join(", ")}</p>
-                      {item.pizza.addons.length > 0 && <p><strong>Adicionais:</strong> {item.pizza.addons.map((addon) => addon.name).join(", ")}</p>}
+                      <div className="space-y-2">
+                        <p className="font-semibold text-stone-700">Sabores:</p>
+                        {item.pizza.flavors.map((flavor) => {
+                          const removedIngredients = (
+                            flavor as typeof flavor & {
+                              removedIngredients?: { id: number; name: string }[];
+                            }
+                          ).removedIngredients ?? [];
+
+                          return (
+                            <div key={flavor.id} className="rounded-lg border border-stone-100 bg-stone-50 px-3 py-2">
+                              <p className="font-semibold text-stone-800">{flavor.name}</p>
+                              {removedIngredients.length > 0 && (
+                                <div className="mt-1 rounded-md border border-red-100 bg-red-50 px-2 py-1.5 text-red-800">
+                                  <strong>Retirar:</strong>{" "}
+                                  {removedIngredients.map((ingredient) => ingredient.name).join(", ")}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {item.pizza.addons.length > 0 && (
+                        <p><strong>Adicionais:</strong> {item.pizza.addons.map((addon) => addon.name).join(", ")}</p>
+                      )}
                     </div>
                   )}
                   {item.addons.length > 0 && <p className="mt-2 text-xs text-stone-600"><strong>Adicionais:</strong> {item.addons.map((addon) => `${addon.quantity}x ${addon.name}`).join(", ")}</p>}

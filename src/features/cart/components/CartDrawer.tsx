@@ -481,7 +481,12 @@ function handleFulfillmentChange(
         pizza: item.pizza
           ? {
               sizeId: item.pizza.size.id,
-              flavorIds: item.pizza.flavors.map(({ id }) => id),
+              flavors: item.pizza.flavors.map((flavor) => ({
+                id: flavor.id,
+                removedIngredientIds: (flavor.removedIngredients ?? [])
+                  .map(({ id }) => id)
+                  .sort((a, b) => a - b),
+              })),
               addonIds: item.pizza.addons.map(({ id }) => id),
             }
           : null,
@@ -1216,14 +1221,30 @@ function CartProduct({
               Sabores
             </p>
 
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <div className="mt-2 space-y-2">
               {item.pizza.flavors.map((flavor) => (
-                <span
+                <div
                   key={flavor.id}
-                  className="rounded-full border border-orange-100 bg-white px-2.5 py-1 text-[11px] font-semibold text-stone-600"
+                  className="rounded-lg border border-orange-100 bg-white px-3 py-2"
                 >
-                  {flavor.name}
-                </span>
+                  <span className="text-xs font-bold text-stone-800">
+                    {flavor.name}
+                  </span>
+
+                  {(flavor.removedIngredients?.length ?? 0) > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {flavor.removedIngredients?.map((ingredient) => (
+                        <span
+                          key={ingredient.id}
+                          className="inline-flex items-center gap-1 rounded-full border border-red-100 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700"
+                        >
+                          <X size={11} aria-hidden="true" />
+                          Sem {ingredient.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>

@@ -85,6 +85,7 @@ import { adminCustomersRouter } from "./routes/admin-customers.routes.js";
 // ============================================
 
 import { customerProfileRouter } from "./routes/customer-profile.routes.js";
+import { pizzaFlavorIngredientsRouter } from "./modules/pizza-flavor-ingredients/pizza-flavor-ingredients.routes.js";
 
 // ============================================
 // INICIALIZAÇÃO
@@ -353,6 +354,9 @@ app.use(
    "/api/admin/orders",
    adminOrdersRouter,
  );
+
+ // Registrar junto às demais rotas:
+app.use("/api", pizzaFlavorIngredientsRouter);
 
  // ============================================
  // 12. INICIALIZAÇÃO DO SERVIDOR

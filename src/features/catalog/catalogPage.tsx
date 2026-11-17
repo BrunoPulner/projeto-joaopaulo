@@ -37,6 +37,9 @@ import {
 } from "./components/PizzaAddonSelector";
 
 import { useCart } from "../cart/useCart";
+import type {
+  PizzaFlavorCustomization,
+} from "../account/admin/components/products/pizza/PizzaFlavorDetailsModal";
 
 import "../../styles/catalog.css";
 
@@ -134,6 +137,9 @@ export function CatalogPage() {
 
   const [pizzaFlavorTotalCents, setPizzaFlavorTotalCents] =
     useState(0);
+
+  const [selectedPizzaCustomizations, setSelectedPizzaCustomizations] =
+    useState<PizzaFlavorCustomization[]>([]);
 
   const [selectedPizzaAddons, setSelectedPizzaAddons] =
     useState<PizzaAddon[]>([]);
@@ -262,6 +268,7 @@ export function CatalogPage() {
     setPizzaStep("size");
     setSelectedPizzaSize(null);
     setSelectedPizzaFlavors([]);
+    setSelectedPizzaCustomizations([]);
     setPizzaFlavorTotalCents(0);
     setSelectedPizzaAddons([]);
     setPizzaTotalPriceCents(0);
@@ -298,6 +305,7 @@ export function CatalogPage() {
     setPizzaStep("size");
     setSelectedPizzaSize(null);
     setSelectedPizzaFlavors([]);
+    setSelectedPizzaCustomizations([]);
     setPizzaFlavorTotalCents(0);
     setSelectedPizzaAddons([]);
     setPizzaTotalPriceCents(0);
@@ -398,6 +406,7 @@ function handleAddProduct(
     setSelectedPizzaSize(size);
 
     setSelectedPizzaFlavors([]);
+    setSelectedPizzaCustomizations([]);
     setSelectedPizzaAddons([]);
 
     setPizzaFlavorTotalCents(
@@ -418,6 +427,7 @@ function handleAddProduct(
   function handlePizzaFlavorsContinue(
     flavors: PizzaCatalogFlavor[],
     totalPriceCents: number,
+    customizations: PizzaFlavorCustomization[],
   ) {
     if (
       !selectedPizzaSize ||
@@ -427,6 +437,11 @@ function handleAddProduct(
     }
 
     setSelectedPizzaFlavors(flavors);
+    setSelectedPizzaCustomizations(
+      customizations.filter((customization) =>
+        flavors.some((flavor) => flavor.id === customization.flavorId),
+      ),
+    );
 
     setPizzaFlavorTotalCents(
       totalPriceCents,
@@ -475,6 +490,9 @@ function handleAddProduct(
       product: pizzaProduct,
       type: "PIZZA",
       quantity: 1,
+
+      // As remoções ficam estruturadas em pizza.flavors,
+      // não duplicadas nas observações do cliente.
       notes: "",
       unitPriceCents: pizzaTotalPriceCents,
 
@@ -483,30 +501,34 @@ function handleAddProduct(
           id: selectedPizzaSize.id,
           name: selectedPizzaSize.name,
           slices: selectedPizzaSize.slices,
-          basePriceCents:
-            selectedPizzaSize.basePriceCents,
+          basePriceCents: selectedPizzaSize.basePriceCents,
         },
 
-        flavors: selectedPizzaFlavors.map(
-          (flavor) => ({
+        flavors: selectedPizzaFlavors.map((flavor) => {
+          const customization = selectedPizzaCustomizations.find(
+            (item) => item.flavorId === flavor.id,
+          );
+
+          return {
             id: flavor.id,
             name: flavor.name,
             additionalPriceCents:
               flavor.additionalPriceCents +
-              (flavor.isPremium
-                ? flavor.premiumAdditionalCents
-                : 0),
+              (flavor.isPremium ? flavor.premiumAdditionalCents : 0),
             isPremium: flavor.isPremium,
-          }),
-        ),
+            removedIngredients:
+              customization?.removedIngredients.map((ingredient) => ({
+                id: ingredient.id,
+                name: ingredient.name,
+              })) ?? [],
+          };
+        }),
 
-        addons: selectedPizzaAddons.map(
-          (addon) => ({
-            id: addon.id,
-            name: addon.name,
-            priceCents: addon.priceCents,
-          }),
-        ),
+        addons: selectedPizzaAddons.map((addon) => ({
+          id: addon.id,
+          name: addon.name,
+          priceCents: addon.priceCents,
+        })),
       },
     });
 
@@ -791,6 +813,26 @@ function handleAddProduct(
                                   </div>
                                 ),
                               )}
+                              {selectedPizzaCustomizations
+                                .filter((item) => item.removedIngredients.length > 0)
+                                .map((item) => {
+                                  const flavor = selectedPizzaFlavors.find(
+                                    (value) => value.id === item.flavorId,
+                                  );
+                                  if (!flavor) return null;
+
+                                  return (
+                                    <div
+                                      key={`removed-${item.flavorId}`}
+                                      className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800"
+                                    >
+                                      <span className="font-bold">{flavor.name}:</span>{" "}
+                                      sem {item.removedIngredients
+                                        .map((ingredient) => ingredient.name)
+                                        .join(", ")}
+                                    </div>
+                                  );
+                                })}
                             </div>
                           </div>
 

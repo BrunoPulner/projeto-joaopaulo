@@ -343,7 +343,7 @@ function OrderItems({
           key={item.id}
           className="flex items-start justify-between gap-4 text-sm"
         >
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-stone-700">
               <strong className="mr-2 text-stone-900">
                 {item.quantity}x
@@ -352,14 +352,34 @@ function OrderItems({
             </p>
 
             {item.pizza && (
-              <div className="mt-1 space-y-1 text-xs text-stone-500">
+              <div className="mt-1 space-y-2 text-xs text-stone-500">
                 <p>Tamanho: {item.pizza.size.name}</p>
-                <p>
-                  Sabores:{" "}
-                  {item.pizza.flavors
-                    .map((flavor) => flavor.name)
-                    .join(", ")}
-                </p>
+
+                <div className="space-y-1.5">
+                  <p className="font-semibold text-stone-600">Sabores:</p>
+                  {item.pizza.flavors.map((flavor) => (
+                    <div
+                      key={flavor.id}
+                      className="rounded-lg border border-stone-100 bg-stone-50 px-2.5 py-2"
+                    >
+                      <p className="font-medium text-stone-700">
+                        {flavor.name}
+                      </p>
+                      {(flavor.removedIngredients ?? []).length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          {flavor.removedIngredients?.map((ingredient) => (
+                            <p
+                              key={ingredient.id}
+                              className="font-medium text-red-700"
+                            >
+                              Sem {ingredient.name}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
 
                 {item.pizza.addons.length > 0 && (
                   <p>
@@ -376,16 +396,13 @@ function OrderItems({
               <p className="mt-1 text-xs text-stone-500">
                 Adicionais:{" "}
                 {item.addons
-                  .map(
-                    (addon) =>
-                      `${addon.quantity}x ${addon.name}`,
-                  )
+                  .map((addon) => `${addon.quantity}x ${addon.name}`)
                   .join(", ")}
               </p>
             )}
 
             {item.removedIngredients?.length > 0 && (
-              <p className="mt-1 text-xs text-stone-500">
+              <p className="mt-1 text-xs font-medium text-red-700">
                 Sem:{" "}
                 {item.removedIngredients
                   .map((ingredient) => ingredient.name)

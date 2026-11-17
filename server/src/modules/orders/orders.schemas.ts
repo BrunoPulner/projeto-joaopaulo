@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 import {
@@ -30,7 +29,6 @@ export const orderAddressSchema = z
     complement: z.string().trim().max(200),
     city: z.literal("Rebouças"),
     state: z.literal("PR"),
-
     coordinates: z
       .object({
         latitude: z.number().finite().min(-90).max(90),
@@ -52,13 +50,29 @@ export const orderAddonSchema = z
   .strict();
 
 // ============================================
+// PERSONALIZAÇÃO DE INGREDIENTES POR SABOR
+// ============================================
+
+export const orderPizzaFlavorCustomizationSchema = z
+  .object({
+    flavorId: positiveId,
+    removedIngredientIds: z
+      .array(positiveId)
+      .max(100, "Limite de ingredientes removidos excedido.")
+      .refine(
+        (ids) => new Set(ids).size === ids.length,
+        "Não repita ingredientes no mesmo sabor.",
+      ),
+  })
+  .strict();
+
+// ============================================
 // CONFIGURAÇÃO DA PIZZA
 // ============================================
 
 export const orderPizzaSchema = z
   .object({
     sizeId: positiveId,
-
     flavorIds: z
       .array(positiveId)
       .min(1, "Selecione pelo menos um sabor.")
@@ -67,7 +81,6 @@ export const orderPizzaSchema = z
         (ids) => new Set(ids).size === ids.length,
         "Não repita sabores.",
       ),
-
     addonIds: z
       .array(positiveId)
       .max(30, "Limite de adicionais excedido.")
@@ -75,8 +88,35 @@ export const orderPizzaSchema = z
         (ids) => new Set(ids).size === ids.length,
         "Não repita adicionais.",
       ),
+    flavorCustomizations: z
+      .array(orderPizzaFlavorCustomizationSchema)
+      .max(2, "Personalize no máximo dois sabores.")
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((pizza, ctx) => {
+    const customizations = pizza.flavorCustomizations ?? [];
+    const seenFlavorIds = new Set<number>();
+
+    customizations.forEach((customization, index) => {
+      if (seenFlavorIds.has(customization.flavorId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["flavorCustomizations", index, "flavorId"],
+          message: "Não repita a personalização de um sabor.",
+        });
+      }
+      seenFlavorIds.add(customization.flavorId);
+
+      if (!pizza.flavorIds.includes(customization.flavorId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["flavorCustomizations", index, "flavorId"],
+          message: "O sabor personalizado deve estar selecionado na pizza.",
+        });
+      }
+    });
+  });
 
 // ============================================
 // ITEM DO PEDIDO
@@ -85,31 +125,15 @@ export const orderPizzaSchema = z
 export const createOrderItemSchema = z
   .object({
     productId: positiveId,
-
     quantity: z.number().int().min(1).max(99),
-
     notes: notesSchema.default(""),
-
     type: z.enum(["PRODUCT", "PIZZA"]),
-
-    addons: z
-      .array(orderAddonSchema)
-      .max(30)
-      .optional(),
-
+    addons: z.array(orderAddonSchema).max(30).optional(),
     pizza: orderPizzaSchema.optional(),
-
-    removedIngredientIds: z
-      .array(positiveId)
-      .max(100)
-      .optional(),
+    removedIngredientIds: z.array(positiveId).max(100).optional(),
   })
   .strict()
   .superRefine((item, ctx) => {
-    // ========================================
-    // PIZZAS PERSONALIZADAS
-    // ========================================
-
     if (item.type === "PIZZA") {
       if (!item.pizza) {
         ctx.addIssue({
@@ -118,50 +142,33 @@ export const createOrderItemSchema = z
           message: "Informe a configuração da pizza.",
         });
       }
-
       if (item.addons && item.addons.length > 0) {
         ctx.addIssue({
           code: "custom",
           path: ["addons"],
-          message:
-            "Adicionais de pizza devem ser informados em pizza.addonIds.",
+          message: "Adicionais de pizza devem ser informados em pizza.addonIds.",
         });
       }
-
-      if (
-        item.removedIngredientIds &&
-        item.removedIngredientIds.length > 0
-      ) {
+      if (item.removedIngredientIds && item.removedIngredientIds.length > 0) {
         ctx.addIssue({
           code: "custom",
           path: ["removedIngredientIds"],
-          message:
-            "A remoção de ingredientes para pizzas ainda não está disponível.",
+          message: "Para pizzas, informe os ingredientes removidos por sabor em pizza.flavorCustomizations.",
         });
       }
     }
-
-    // ========================================
-    // PRODUTOS CONVENCIONAIS
-    // ========================================
 
     if (item.type === "PRODUCT" && item.pizza) {
       ctx.addIssue({
         code: "custom",
         path: ["pizza"],
-        message:
-          "Produto comum não aceita configuração de pizza.",
+        message: "Produto comum não aceita configuração de pizza.",
       });
     }
 
-    // ========================================
-    // ADICIONAIS DUPLICADOS
-    // ========================================
-
     if (
       item.addons &&
-      new Set(item.addons.map((addon) => addon.id)).size !==
-        item.addons.length
+      new Set(item.addons.map((addon) => addon.id)).size !== item.addons.length
     ) {
       ctx.addIssue({
         code: "custom",
@@ -170,14 +177,9 @@ export const createOrderItemSchema = z
       });
     }
 
-    // ========================================
-    // INGREDIENTES DUPLICADOS
-    // ========================================
-
     if (
       item.removedIngredientIds &&
-      new Set(item.removedIngredientIds).size !==
-        item.removedIngredientIds.length
+      new Set(item.removedIngredientIds).size !== item.removedIngredientIds.length
     ) {
       ctx.addIssue({
         code: "custom",
@@ -194,18 +196,10 @@ export const createOrderItemSchema = z
 export const createOrderSchema = z
   .object({
     idempotencyKey: z.uuid(),
-
     fulfillmentType: z.enum(FULFILLMENT_TYPES),
-
     deliveryAddress: orderAddressSchema.optional(),
-
-    // O pagamento ainda não é processado.
-    paymentMethod: z
-      .enum(PAYMENT_METHODS)
-      .default("UNDEFINED"),
-
+    paymentMethod: z.enum(PAYMENT_METHODS).default("UNDEFINED"),
     notes: notesSchema.default(""),
-
     items: z
       .array(createOrderItemSchema)
       .min(1, "Adicione pelo menos um produto.")
@@ -213,21 +207,14 @@ export const createOrderSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
-    if (
-      data.fulfillmentType === "DELIVERY" &&
-      !data.deliveryAddress
-    ) {
+    if (data.fulfillmentType === "DELIVERY" && !data.deliveryAddress) {
       ctx.addIssue({
         code: "custom",
         path: ["deliveryAddress"],
         message: "Informe o endereço de entrega.",
       });
     }
-
-    if (
-      data.fulfillmentType === "PICKUP" &&
-      data.deliveryAddress
-    ) {
+    if (data.fulfillmentType === "PICKUP" && data.deliveryAddress) {
       ctx.addIssue({
         code: "custom",
         path: ["deliveryAddress"],
@@ -241,9 +228,7 @@ export const createOrderSchema = z
 // ============================================
 
 export const updateOrderStatusSchema = z
-  .object({
-    status: z.enum(ORDER_STATUSES),
-  })
+  .object({ status: z.enum(ORDER_STATUSES) })
   .strict();
 
 // ============================================
@@ -260,14 +245,6 @@ export const orderIdSchema = z.coerce
 // TIPOS INFERIDOS
 // ============================================
 
-export type CreateOrderPayload = z.infer<
-  typeof createOrderSchema
->;
-
-export type CreateOrderItemPayload = z.infer<
-  typeof createOrderItemSchema
->;
-
-export type UpdateOrderStatusPayload = z.infer<
-  typeof updateOrderStatusSchema
->;
+export type CreateOrderPayload = z.infer<typeof createOrderSchema>;
+export type CreateOrderItemPayload = z.infer<typeof createOrderItemSchema>;
+export type UpdateOrderStatusPayload = z.infer<typeof updateOrderStatusSchema>;

@@ -54,6 +54,30 @@ export interface PizzaAddon {
   sortOrder: number;
 }
 
+
+ // ============================================
+ // TIPOS - INGREDIENTES DOS SABORES
+ // ============================================
+
+export interface PizzaFlavorIngredient {
+  id: number;
+  pizzaFlavorId: number;
+  name: string;
+  isRemovable: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface PizzaFlavorIngredientPayload {
+  name: string;
+  isRemovable?: boolean;
+  sortOrder?: number;
+}
+
+export type PizzaFlavorIngredientUpdatePayload =
+  Partial<PizzaFlavorIngredientPayload>;
+
+
 // ============================================
 // PAYLOADS - TAMANHOS
 // ============================================
@@ -462,6 +486,70 @@ export const pizzaAddonsApi = {
   },
 };
 
+
+// ============================================
+// API - INGREDIENTES DOS SABORES DE PIZZA
+// ============================================
+
+export const pizzaFlavorIngredientsApi = {
+  // ==========================================
+  // LISTAR INGREDIENTES DE UM SABOR
+  // ==========================================
+
+  list(
+    pizzaFlavorId: number,
+  ): Promise<PizzaFlavorIngredient[]> {
+    return apiRequest<PizzaFlavorIngredient[]>(
+      `/api/pizza-catalog-flavors/${assertId(pizzaFlavorId)}/ingredients`,
+    );
+  },
+
+  // ==========================================
+  // CADASTRAR INGREDIENTE
+  // ==========================================
+
+  create(
+    pizzaFlavorId: number,
+    payload: PizzaFlavorIngredientPayload,
+  ): Promise<PizzaFlavorIngredient> {
+    return apiRequest<PizzaFlavorIngredient>(
+      `/api/pizza-catalog-flavors/${assertId(pizzaFlavorId)}/ingredients`,
+      jsonOptions("POST", payload),
+    );
+  },
+
+  // ==========================================
+  // ATUALIZAR INGREDIENTE
+  // ==========================================
+
+  update(
+    ingredientId: number,
+    payload: PizzaFlavorIngredientUpdatePayload,
+  ): Promise<PizzaFlavorIngredient> {
+    return apiRequest<PizzaFlavorIngredient>(
+      `/api/pizza-flavor-ingredients/${assertId(ingredientId)}`,
+      jsonOptions("PATCH", payload),
+    );
+  },
+
+  // ==========================================
+  // EXCLUIR INGREDIENTE
+  // ==========================================
+
+  remove(
+    ingredientId: number,
+  ): Promise<void> {
+    return apiRequest<void>(
+      `/api/pizza-flavor-ingredients/${assertId(ingredientId)}`,
+      {
+        method: "DELETE",
+      },
+    );
+  },
+};
+
+
+
 // ============================================
 // EXPORTAÇÃO CENTRALIZADA
 // ============================================
@@ -470,4 +558,5 @@ export const pizzaCatalogApi = {
   sizes: pizzaSizesApi,
   flavors: pizzaFlavorsApi,
   addons: pizzaAddonsApi,
+  ingredients: pizzaFlavorIngredientsApi,
 };

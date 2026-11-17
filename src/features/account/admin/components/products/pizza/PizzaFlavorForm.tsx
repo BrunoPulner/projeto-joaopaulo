@@ -23,6 +23,7 @@ import type {
 import { CurrencyInput } from "../CurrencyInput";
 import { formatCurrency } from "../currency.utils";
 import { PizzaImageUpload } from "./PizzaImageUpload";
+import { PizzaFlavorIngredientsManager } from "./PizzaFlavorIngredientsManager";
 
 // ============================================
 // TIPOS
@@ -803,7 +804,36 @@ export function PizzaFlavorForm({
             </button>
           </div>
         </div>
+      
       </form>
+
+      {/* ======================================
+          INGREDIENTES DO SABOR
+          ====================================== */}
+
+      {initialData ? (
+        <div className="border-t border-slate-200 bg-slate-50/60 p-5 sm:p-6">
+          <PizzaFlavorIngredientsManager
+            key={initialData.id}
+            pizzaFlavorId={initialData.id}
+            pizzaFlavorName={initialData.name}
+          />
+        </div>
+      ) : (
+        <div className="border-t border-slate-200 bg-orange-50/50 px-5 py-4 sm:px-6">
+          <p className="text-sm font-semibold text-orange-900">
+            Ingredientes do sabor
+          </p>
+
+          <p className="mt-1 text-xs leading-relaxed text-orange-800">
+            Cadastre o sabor primeiro. Depois,
+            acesse a edição para configurar os
+            ingredientes e definir quais podem
+            ser removidos pelo cliente.
+          </p>
+        </div>
+      )}
     </section>
   );
 }
+
