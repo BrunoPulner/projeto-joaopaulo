@@ -43,7 +43,7 @@ export type CartPizzaFlavor = {
   additionalPriceCents: number;
   isPremium: boolean;
 
-  // Ingredientes removidos especificamente deste sabor
+  // Ingredientes removidos especificamente deste sabor.
   removedIngredients?: RemovedIngredient[];
 };
 
@@ -64,31 +64,40 @@ export type CartPizzaConfiguration = {
 // ============================================
 
 export type CartItem = {
-  // Identificador único da configuração
+  // Identificador único da configuração.
   id: string;
 
-  // Produto de origem
+  // Produto de origem.
   product: CartProduct;
 
-  // Tipo de item
+  // Tipo de item.
   type?: "PRODUCT" | "PIZZA";
 
-  // Quantidade selecionada
+  // Quantidade selecionada.
   quantity: number;
 
-  // Observações do cliente
+  // Observações do cliente.
   notes: string;
 
   // Preço unitário final, em centavos.
   // Inclui adicionais e personalizações.
   unitPriceCents?: number;
 
-  // Adicionais de produtos convencionais
+  // Preço unitário original antes da promoção.
+  // Inclui adicionais e personalizações.
+  originalUnitPriceCents?: number;
+
+  // ID da promoção aplicada.
+  // Opcional para produtos sem desconto.
+  promotionId?: number;
+
+  // Adicionais de produtos convencionais.
   addons?: CartAddon[];
 
-  // Configuração exclusiva de pizza
+  // Configuração exclusiva de pizza.
   pizza?: CartPizzaConfiguration;
 
+  // Ingredientes removidos do produto.
   removedIngredients?: RemovedIngredient[];
 };
 
@@ -105,7 +114,14 @@ export type AddCartItemInput = {
 
   type?: "PRODUCT" | "PIZZA";
 
+  // Preço unitário final.
   unitPriceCents?: number;
+
+  // Preço unitário antes da promoção.
+  originalUnitPriceCents?: number;
+
+  // Identificador da promoção aplicada.
+  promotionId?: number;
 
   addons?: CartAddon[];
 
@@ -118,7 +134,7 @@ export type AddCartItemInput = {
 // FUNÇÕES AUXILIARES
 // ============================================
 
-// Retorna o preço base do produto
+// Retorna o preço base do produto,
 // independentemente do modelo utilizado.
 export function getCartProductPriceCents(
   product: CartProduct,
@@ -130,8 +146,16 @@ export function getCartProductPriceCents(
   return Math.round(product.price * 100);
 }
 
-// Retorna o preço unitário efetivo
-// do item, incluindo personalizações.
+// ============================================
+// PREÇO UNITÁRIO EFETIVO
+// ============================================
+
+// Retorna o preço unitário final do item,
+// incluindo promoções e personalizações.
+//
+// O valor armazenado é uma estimativa do
+// frontend. O backend recalcula o preço
+// ao confirmar o pedido.
 export function getCartItemUnitPriceCents(
   item: CartItem,
 ): number {
@@ -141,7 +165,51 @@ export function getCartItemUnitPriceCents(
   );
 }
 
-// Retorna o total do item em centavos.
+// ============================================
+// PREÇO ORIGINAL DO ITEM
+// ============================================
+
+// Retorna o preço unitário anterior à promoção.
+//
+// Para itens antigos que não possuem
+// originalUnitPriceCents, utiliza o preço
+// unitário disponível como alternativa.
+export function getCartItemOriginalPriceCents(
+  item: CartItem,
+): number {
+  return (
+    item.originalUnitPriceCents ??
+    getCartItemUnitPriceCents(item)
+  );
+}
+
+// ============================================
+// ECONOMIA UNITÁRIA
+// ============================================
+
+// Calcula a economia por unidade,
+// sem permitir valores negativos.
+export function getCartItemDiscountCents(
+  item: CartItem,
+): number {
+  const originalPrice =
+    getCartItemOriginalPriceCents(item);
+
+  const finalPrice =
+    getCartItemUnitPriceCents(item);
+
+  return Math.max(
+    0,
+    originalPrice - finalPrice,
+  );
+}
+
+// ============================================
+// TOTAL DO ITEM
+// ============================================
+
+// Retorna o total final do item,
+// considerando a quantidade.
 export function getCartItemTotalCents(
   item: CartItem,
 ): number {
@@ -151,13 +219,47 @@ export function getCartItemTotalCents(
   );
 }
 
-// Retorna o subtotal completo da sacola.
+// ============================================
+// ECONOMIA TOTAL DO ITEM
+// ============================================
+
+export function getCartItemTotalDiscountCents(
+  item: CartItem,
+): number {
+  return (
+    getCartItemDiscountCents(item) *
+    item.quantity
+  );
+}
+
+// ============================================
+// SUBTOTAL DA SACOLA
+// ============================================
+
+// Retorna o subtotal dos itens com
+// os preços armazenados no carrinho.
 export function getCartSubtotalCents(
   items: CartItem[],
 ): number {
   return items.reduce(
     (total, item) =>
       total + getCartItemTotalCents(item),
+    0,
+  );
+}
+
+// ============================================
+// ECONOMIA TOTAL DA SACOLA
+// ============================================
+
+// Soma a economia de todos os itens
+// que possuem preço original informado.
+export function getCartTotalDiscountCents(
+  items: CartItem[],
+): number {
+  return items.reduce(
+    (total, item) =>
+      total + getCartItemTotalDiscountCents(item),
     0,
   );
 }

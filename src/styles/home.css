@@ -105,3 +105,98 @@
     transform: scale(1.03);
   }
 }
+
+.restaurant-home {
+  position: relative;
+  isolation: isolate;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: #1b1710;
+  color: #fffbf1;
+}
+
+html:has(.restaurant-home),
+body:has(.restaurant-home),
+#root:has(.restaurant-home) {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.restaurant-home-photo,
+.restaurant-home::after {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.restaurant-home-photo {
+  z-index: -2;
+  object-fit: cover;
+  object-position: 66% center;
+}
+
+.restaurant-home::after {
+  z-index: -1;
+  content: "";
+  background: linear-gradient(0deg, rgb(17 13 9 / 94%), rgb(17 13 9 / 16%) 76%),
+    linear-gradient(180deg, rgb(17 13 9 / 66%), transparent 28%);
+}
+
+.restaurant-home-content {
+  display: grid;
+  align-items: end;
+  width: min(100%, 72rem);
+  height: 100%;
+  margin-inline: auto;
+  padding: calc(var(--public-header-height) + 1rem) clamp(1.25rem, 5vw, 4rem) max(2.5rem, env(safe-area-inset-bottom));
+}
+
+
+.restaurant-home-title {
+  max-width: 13ch;
+  font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  font-size: clamp(2.45rem, 7.4vw, 6.5rem);
+  font-weight: 400;
+  line-height: 0.99;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+
+.restaurant-home-title em {
+  color: #f2d8ae;
+  font-weight: inherit;
+}
+
+@media (min-width: 768px) {
+  .restaurant-home-photo {
+    object-position: center;
+  }
+
+  .restaurant-home::after {
+    background: linear-gradient(90deg, rgb(17 13 9 / 92%), rgb(17 13 9 / 57%) 39%, transparent 77%),
+      linear-gradient(180deg, rgb(17 13 9 / 62%), transparent 30%);
+  }
+
+  .restaurant-home-content {
+    align-items: center;
+  }
+}
+
+@media (max-height: 480px) {
+  .restaurant-home-content {
+    padding-block: calc(var(--public-header-height) + 0.75rem) 0.75rem;
+  }
+
+  .restaurant-home h1 {
+    font-size: clamp(1.85rem, 8.5vh, 3.25rem);
+  }
+
+  .restaurant-home p,
+  .restaurant-home section a {
+    margin-top: 0.65rem;
+  }
+}

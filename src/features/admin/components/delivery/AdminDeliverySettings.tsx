@@ -303,25 +303,8 @@ export function AdminDeliverySettings() {
           CABEÇALHO
       ======================================== */}
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-orange-600">
-            <Truck size={20} />
-
-            <span className="text-xs font-bold uppercase tracking-widest">
-              Administração
-            </span>
-          </div>
-
-          <h2 className="text-2xl font-black tracking-tight text-stone-900">
-            Entregas e Fretes
-          </h2>
-
-          <p className="mt-1 text-sm text-stone-500">
-            Configure as taxas, regiões atendidas e
-            condições de entrega do restaurante.
-          </p>
-        </div>
+      <div className="flex flex-col gap-3 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <h2 className="text-base font-bold text-stone-900">Configuração da operação</h2>
 
         <button
           type="button"
@@ -369,10 +352,10 @@ export function AdminDeliverySettings() {
           CONFIGURAÇÕES E RESUMO
       ======================================== */}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,21rem)]">
         {/* COLUNA PRINCIPAL */}
 
-        <div className="min-w-0 space-y-5">
+        <div className="min-w-0 space-y-4">
           {/* ATIVAR ENTREGAS */}
 
           <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">

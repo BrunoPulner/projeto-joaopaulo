@@ -1,41 +1,26 @@
-import { UserRound } from "lucide-react";
-
 export function LoginIntro() {
   return (
-    <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#fff1df] p-10 lg:flex">
-      <div
-        aria-hidden="true"
-        className="absolute -right-20 -top-20 size-72 rounded-full bg-orange-200/50 blur-3xl"
+    <div className="relative isolate hidden min-w-0 flex-col justify-between overflow-hidden bg-[#221910] p-8 text-[#fff9ef] lg:flex xl:p-10">
+      <img
+        src="/images/restaurante-salao.jpg"
+        alt=""
+        className="absolute inset-0 -z-20 size-full object-cover object-[65%_50%]"
+      />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-t from-[#1b130d] via-[#1b130d]/25 to-[#1b130d]/70" aria-hidden="true" />
+
+      <img
+        src="/images/restaurante-wordmark-light.svg"
+        alt="restaurante.com"
+        width={204}
+        height={41}
       />
 
-      <div className="relative">
-        <img
-          src="/images/logo-semfundo.png"
-          alt="Espetinhos João Paulo"
-          className="h-24 w-auto object-contain"
-        />
-      </div>
-
-      <div className="relative max-w-sm pb-8">
-        <span className="mb-5 inline-flex size-14 items-center justify-center rounded-2xl bg-white text-orange-700 shadow-sm">
-          <UserRound size={27} aria-hidden="true" />
-        </span>
-
-        <p className="text-sm font-bold uppercase tracking-[0.16em] text-orange-700">
-          Seu perfil
-        </p>
-        <h2 className="mt-3 text-4xl font-black leading-tight text-stone-950">
-          Que bom ter você por aqui.
-        </h2>
-        <p className="mt-4 leading-relaxed text-stone-600">
-          Entre para acessar sua conta e acompanhar sua experiência com
-          João Paulo Espetinhos.
+      <div className="max-w-sm pt-28">
+        <span aria-hidden="true" className="mb-4 block h-px w-10 bg-[#eac69d]" />
+        <p className="restaurant-display text-[clamp(2.65rem,5vw,4.5rem)] leading-[0.98] tracking-tight">
+          Bom ter você <em className="text-[#f2d8ae]">à mesa.</em>
         </p>
       </div>
-
-      <p className="relative text-xs text-stone-500">
-        João Paulo Espetinhos
-      </p>
-    </aside>
+    </div>
   );
 }

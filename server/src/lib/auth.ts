@@ -37,7 +37,7 @@ for (const key of requiredEnv) {
 // =====================================================
 
 export const auth = betterAuth({
-  appName: "Espetinhos João Paulo",
+  appName: "restaurante.com",
 
   database: pool,
 

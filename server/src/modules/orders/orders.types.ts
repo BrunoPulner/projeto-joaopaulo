@@ -1,6 +1,6 @@
 
 /**
- * Espetinhos João Paulo
+ * restaurante.com
  * Tipagens do módulo de pedidos
  */
 

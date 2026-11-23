@@ -972,36 +972,6 @@ useEffect(() => {
 
   return (
     <div className="space-y-6">
-      {/* TÍTULO */}
-
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-stone-900">
-            Gerenciamento de clientes
-          </h2>
-
-          <p className="mt-1 text-sm text-stone-500">
-            Consulte cadastros e gerencie permissões
-            para realizar pedidos.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => void handleRefresh()}
-          disabled={loading || refreshing}
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-bold text-stone-700 hover:bg-stone-50 disabled:opacity-50"
-        >
-          <RefreshCw
-            size={17}
-            className={
-              refreshing ? "animate-spin" : ""
-            }
-          />
-          Atualizar
-        </button>
-      </div>
-
       {/* ERRO GERAL */}
 
       {error && (
@@ -1038,7 +1008,20 @@ useEffect(() => {
 
           {/* BUSCA E FILTROS */}
 
+
           <section className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-bold text-stone-900">Buscar clientes</h2>
+              <button
+                type="button"
+                onClick={() => void handleRefresh()}
+                disabled={refreshing}
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-200 px-3 text-sm font-semibold text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} aria-hidden="true" />
+                Atualizar
+              </button>
+            </div>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="relative w-full lg:max-w-md">
                 <Search
@@ -1124,7 +1107,7 @@ useEffect(() => {
                       )
                     }
                     disabled={openingId !== null}
-                    className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-orange-50/50 disabled:opacity-60 sm:gap-4 sm:p-5"
+                    className="flex w-full items-center gap-2 p-3 text-left transition-colors hover:bg-orange-50/50 disabled:opacity-60 sm:gap-4 sm:p-5"
                   >
                     <CustomerAvatar
                       customer={customer}
@@ -1137,7 +1120,7 @@ useEffect(() => {
                         )}
                       </p>
 
-                      <p className="mt-0.5 truncate text-xs text-stone-500">
+                      <p className="mt-0.5 break-all text-xs text-stone-600">
                         {customer.email}
                       </p>
 
@@ -1149,7 +1132,7 @@ useEffect(() => {
                       </p>
                     </div>
 
-                    <div className="hidden sm:block">
+                    <div className="shrink-0">
                       <CustomerStatus
                         blocked={
                           customer.ordersBlocked

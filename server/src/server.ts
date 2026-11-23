@@ -86,6 +86,12 @@ import { adminCustomersRouter } from "./routes/admin-customers.routes.js";
 
 import { customerProfileRouter } from "./routes/customer-profile.routes.js";
 import { pizzaFlavorIngredientsRouter } from "./modules/pizza-flavor-ingredients/pizza-flavor-ingredients.routes.js";
+import {
+  promotionsRouter,
+  adminPromotionsRouter,
+  adminPromotionGroupsRouter,
+} from "./modules/promotions/promotions.routes.js";
+
 
 // ============================================
 // INICIALIZAÇÃO
@@ -166,7 +172,7 @@ app.use(
 app.get("/health", (_request, response) => {
   response.status(200).json({
     status: "ok",
-    message: "API Espetinhos João Paulo funcionando.",
+    message: "API restaurante.com funcionando.",
   });
 });
 
@@ -355,8 +361,36 @@ app.use(
    adminOrdersRouter,
  );
 
+ // ============================================
+// PROMOÇÕES E OFERTAS
+// ============================================
+
+// Promoções públicas disponíveis no cardápio
+// GET /api/promotions
+app.use(
+  "/api/promotions",
+  promotionsRouter,
+);
+
+// Gerenciamento administrativo
+// GET   /api/admin/promotions
+// POST  /api/admin/promotions
+// PATCH /api/admin/promotions/:id
+app.use(
+  "/api/admin/promotions",
+  adminPromotionsRouter,
+
+);
+
+app.use(
+  "/api/admin/promotion-groups",
+  adminPromotionGroupsRouter,
+);
+
  // Registrar junto às demais rotas:
 app.use("/api", pizzaFlavorIngredientsRouter);
+
+
 
  // ============================================
  // 12. INICIALIZAÇÃO DO SERVIDOR
@@ -364,7 +398,7 @@ app.use("/api", pizzaFlavorIngredientsRouter);
 
  app.listen(PORT, () => {
    console.log(
-     `🔥 API Espetinhos João Paulo rodando em http://localhost:${PORT}`,
+     `🔥 API restaurante.com rodando em http://localhost:${PORT}`,
    );
  });
 

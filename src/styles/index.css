@@ -77,3 +77,126 @@ button,
 a {
   -webkit-tap-highlight-color: transparent;
 }
+
+.restaurant-display {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+}
+
+
+.public-layout {
+  --public-header-height: 5rem;
+  min-height: 100dvh;
+  padding-top: var(--public-header-height);
+  overflow-x: clip;
+}
+
+.public-header {
+  height: var(--public-header-height);
+  border-bottom: 1px solid rgb(142 108 79 / 26%);
+  background-color: #f7eee2;
+  box-shadow: 0 4px 16px rgb(43 29 17 / 6%);
+  transition: height 260ms cubic-bezier(0.22, 1, 0.36, 1), background-color 200ms ease;
+}
+
+.public-header[data-compact] {
+  height: 3.75rem;
+}
+
+.public-header-brand {
+  transform-origin: left center;
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.public-header[data-compact] .public-header-brand {
+  transform: scale(0.88);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .public-header {
+    background-color: rgb(249 240 226 / 67%);
+    backdrop-filter: blur(14px) saturate(115%);
+  }
+
+  .public-header[data-compact] {
+    background-color: rgb(249 240 226 / 79%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-header,
+  .public-header-brand {
+    transition: none;
+  }
+}
+
+.public-layout:has([data-public-page="home"]) {
+  padding-top: 0;
+}
+
+@media (min-width: 640px) {
+  .public-layout {
+    --public-header-height: 5.5rem;
+  }
+}
+
+
+.public-page-viewport {
+  --page-slide: -1.25rem;
+  min-height: calc(100dvh - var(--public-header-height));
+  overflow: clip;
+  background: #fffaf5;
+}
+
+.public-page-viewport[data-public-page="home"] {
+  --page-slide: 1.25rem;
+  background: #1b1710;
+}
+
+.public-page-content {
+  min-width: 0;
+}
+
+@keyframes public-page-in {
+  from {
+    transform: translateY(var(--page-slide));
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .public-page-content {
+    animation: public-page-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+
+@media (prefers-reduced-motion: no-preference) {
+  .login-card-enter {
+    animation: login-card-enter 350ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  @keyframes login-card-enter {
+    from {
+      opacity: 0.65;
+      transform: translateY(10px);
+    }
+  }
+}
+
+
+@media (prefers-reduced-motion: no-preference) {
+  .customer-section-enter {
+    animation: customer-section-enter 240ms ease-out;
+  }
+
+  @keyframes customer-section-enter {
+    from {
+      opacity: 0.78;
+      transform: translateY(5px);
+    }
+  }
+}

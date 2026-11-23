@@ -225,6 +225,8 @@ export function CartProvider({
       quantity,
       type = "PRODUCT",
       unitPriceCents,
+      originalUnitPriceCents,
+      promotionId,
       addons,
       pizza,
       removedIngredients,
@@ -269,17 +271,41 @@ export function CartProvider({
         (item) => item.id === itemId,
       );
 
+      // ======================================
+      // ITEM JÁ EXISTENTE
+      // ======================================
+
       if (existingItem) {
         return current.map((item) =>
           item.id === itemId
             ? {
                 ...item,
+
                 quantity:
                   item.quantity + quantityToAdd,
+
+                // Atualiza o preço estimado com
+                // os dados da nova adição.
+                unitPriceCents:
+                  unitPriceCents ??
+                  item.unitPriceCents,
+
+                originalUnitPriceCents:
+                  originalUnitPriceCents ??
+                  item.originalUnitPriceCents,
+
+                // Permite remover uma promoção
+                // antiga quando a nova adição
+                // não possui promoção.
+                promotionId,
               }
             : item,
         );
       }
+
+      // ======================================
+      // NOVO ITEM
+      // ======================================
 
       const newItem: CartItem = {
         id: itemId,
@@ -287,7 +313,15 @@ export function CartProvider({
         quantity: quantityToAdd,
         notes: normalizedNotes,
         type,
+
+        // Preço estimado do item.
         unitPriceCents,
+
+        // Preço anterior à promoção.
+        originalUnitPriceCents,
+
+        // Promoção aplicada, quando houver.
+        promotionId,
 
         addons: addons?.map((addon) => ({
           ...addon,

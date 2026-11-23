@@ -21,20 +21,20 @@ const slides: MediaSlide[] = [
   {
     id: "entrada-1",
     type: "image",
-    src: "/images/entrada.png",
-    alt: "Entrada do João Paulo Espetinhos",
+    src: "/images/restaurante-salao.jpg",
+    alt: "Salão do restaurante",
   },
   {
     id: "entrada-2",
     type: "image",
-    src: "/images/entrada.png",
-    alt: "Espaço do João Paulo Espetinhos",
+    src: "/images/restaurante-salao.jpg",
+    alt: "Espaço do restaurante.com",
   },
   {
     id: "entrada-3",
     type: "image",
-    src: "/images/entrada.png",
-    alt: "Conheça o João Paulo Espetinhos",
+    src: "/images/restaurante-salao.jpg",
+    alt: "Conheça o restaurante.com",
   },
 ];
 
@@ -112,7 +112,7 @@ export function HomeMediaCarousel() {
 
   return (
     <section
-      aria-label="Fotos e vídeos do João Paulo Espetinhos"
+      aria-label="Fotos e vídeos do restaurante.com"
       aria-roledescription="carrossel"
       className="home-carousel"
       onMouseEnter={() => setHovered(true)}

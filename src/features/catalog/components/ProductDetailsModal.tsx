@@ -35,6 +35,7 @@ type ModalProduct = Product | CatalogProduct;
 
 type ProductDetailsModalProps<T extends ModalProduct> = {
   product: T | null;
+  promotionalPriceCents?: number;
   onClose: () => void;
   onAdd: (
     product: T,
@@ -87,6 +88,7 @@ function getProductStock(product: ModalProduct) {
 
 export function ProductDetailsModal<T extends ModalProduct>({
   product,
+  promotionalPriceCents,
   onClose,
   onAdd,
 }: ProductDetailsModalProps<T>) {
@@ -208,7 +210,8 @@ export function ProductDetailsModal<T extends ModalProduct>({
   // DADOS DO PRODUTO
   // ==========================================
 
-  const price = getProductPrice(product);
+  const originalPrice = getProductPrice(product);
+  const price = promotionalPriceCents === undefined ? originalPrice : promotionalPriceCents / 100;
   const total = price * quantity;
 
   const imageUrl = getProductImage(product);
@@ -467,7 +470,7 @@ function handleAdd() {
                 tracking-[0.2em] text-white/80
               "
             >
-              João Paulo Espetinhos
+              restaurante.com
             </span>
 
             <p
@@ -541,7 +544,7 @@ function handleAdd() {
                   sm:text-xs
                 "
               >
-                Espetinhos do João Paulo
+                restaurante.com
               </span>
 
               <div
@@ -562,15 +565,14 @@ function handleAdd() {
                   {product.name}
                 </h2>
 
-                <span
-                  className="
-                    shrink-0 text-lg font-black
-                    text-orange-700
-                    sm:text-xl lg:text-2xl
-                  "
-                >
-                  {currency.format(price)}
-                </span>
+                <div className="shrink-0 text-right">
+                  {price < originalPrice && (
+                    <s className="block text-xs text-stone-500">{currency.format(originalPrice)}</s>
+                  )}
+                  <span className={`text-lg font-black sm:text-xl lg:text-2xl ${promotionalPriceCents === undefined ? "text-orange-700" : "text-emerald-800"}`}>
+                    {currency.format(price)}
+                  </span>
+                </div>
               </div>
 
               {product.description && (

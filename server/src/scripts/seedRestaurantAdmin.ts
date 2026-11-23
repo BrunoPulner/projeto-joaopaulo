@@ -6,7 +6,7 @@ import { auth } from "../lib/auth.js";
 
 const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
 const password = process.env.ADMIN_PASSWORD;
-const name = process.env.ADMIN_NAME?.trim() || "João Paulo";
+const name = process.env.ADMIN_NAME?.trim() || "Administrador";
 
 async function main() {
   if (!email || !password) {

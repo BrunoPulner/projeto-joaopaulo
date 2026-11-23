@@ -1092,19 +1092,6 @@ window.requestAnimationFrame(() => {
 
   return (
     <div className="space-y-6">
-      {/* CABEÇALHO */}
-
-      <section className="rounded-3xl bg-linear-to-br from-orange-700 to-orange-900 p-6 text-white shadow-lg shadow-orange-900/10 sm:p-8">
-        <h2 className="text-2xl font-black sm:text-3xl">
-          Produtos do restaurante
-        </h2>
-
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-orange-50">
-          Organize seu cardápio, atualize os preços
-          e cadastre novos produtos.
-        </p>
-      </section>
-
       {/* MENSAGENS */}
 
       {error && (
@@ -1141,9 +1128,9 @@ window.requestAnimationFrame(() => {
       >
         <h2
           id="product-category-title"
-          className="mb-4 text-lg font-black text-slate-900"
+          className="mb-3 text-base font-bold text-stone-900"
         >
-          Cadastrar produto por categoria
+          Cadastrar produto ou gerenciar adicionais
         </h2>
 
         <ProductCategorySelector
@@ -1285,7 +1272,7 @@ window.requestAnimationFrame(() => {
       >
         {/* CABEÇALHO DA LISTAGEM */}
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-3 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <h2
               id="product-list-title"
@@ -1318,7 +1305,7 @@ window.requestAnimationFrame(() => {
               />
             </button>
 
-            <div className="relative">
+            <div className="relative min-w-0 flex-1 sm:flex-initial">
               <Search
                 size={18}
                 aria-hidden="true"
@@ -1333,7 +1320,7 @@ window.requestAnimationFrame(() => {
                 onChange={(event) =>
                   setSearch(event.target.value)
                 }
-                className={`${searchInputClass} pl-10`}
+                className={`${searchInputClass} w-full pl-10`}
               />
             </div>
           </div>
@@ -1341,7 +1328,7 @@ window.requestAnimationFrame(() => {
 
         {/* RESUMO DOS INGREDIENTES */}
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <IngredientSummaryCard
             label="Produtos cadastrados"
             value={ingredientSummary.total}

@@ -188,7 +188,7 @@ export function PizzaFlavorDetailsModal({
           )}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 to-transparent p-4 text-white">
             <span className="text-[10px] font-bold uppercase tracking-widest text-orange-200">
-              Espetinhos do João Paulo
+              restaurante.com
             </span>
             <p className="mt-1 text-base font-black">Preparado para você.</p>
           </div>

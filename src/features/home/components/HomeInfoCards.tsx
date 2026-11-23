@@ -160,7 +160,7 @@ export function HomeInfoCards() {
 
             <p className="mt-0.5 truncate text-xs text-white/55">
               {location.address ||
-                "João Paulo Espetinhos"}
+                "restaurante.com"}
             </p>
           </div>
         </div>

@@ -1,5 +1,5 @@
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ArrowLeft,
@@ -8,6 +8,7 @@ import {
   Pizza,
   RefreshCw,
   ShoppingBag,
+  Star,
 } from "lucide-react";
 
 import { useCatalog } from "./hooks/useCatalog";
@@ -17,8 +18,12 @@ import type {
 } from "./types/catalog.types";
 
 import { CategoryVideo } from "./components/CategoryVideo";
-import { CategoryTabs } from "./components/CategoryTabs";
+import {
+  CategoryTabs,
+  type CatalogCategorySelection,
+} from "./components/CategoryTabs";
 import { ProductCard } from "./components/ProductCard";
+import { PizzaOrderProgress, type PizzaStep } from "./components/PizzaOrderProgress";
 import { ProductDetailsModal } from "./components/ProductDetailsModal";
 
 import {
@@ -37,6 +42,10 @@ import {
 } from "./components/PizzaAddonSelector";
 
 import { useCart } from "../cart/useCart";
+import {
+  adminPromotionsApi,
+  type PublicPromotion,
+} from "../account/admin/api/admin-promotions.api";
 import type {
   PizzaFlavorCustomization,
 } from "../account/admin/components/products/pizza/PizzaFlavorDetailsModal";
@@ -49,11 +58,9 @@ import type { RemovedIngredient } from "./api/product-ingredients.api";
 // TIPOS
 // ============================================
 
-type PizzaStep =
-  | "size"
-  | "flavors"
-  | "addons"
-  | "review";
+type PizzaOfferSelection = { size: PizzaSize; flavorId: number };
+
+const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/$/, "");
 
 // ============================================
 // FORMATAÇÃO DE PREÇOS
@@ -114,7 +121,7 @@ export function CatalogPage() {
   // ==========================================
 
   const [selectedCategory, setSelectedCategory] =
-    useState<number | null>(null);
+    useState<CatalogCategorySelection | null>(null);
 
   const [selectedSubcategory, setSelectedSubcategory] =
     useState<number | null>(null);
@@ -153,7 +160,20 @@ export function CatalogPage() {
 
   const [leaving, setLeaving] = useState(false);
 
-  const pendingCategory = useRef<number | null>(null);
+  const pendingCategory = useRef<{
+    categoryId: CatalogCategorySelection;
+    pizzaOffer?: PizzaOfferSelection;
+  } | null>(null);
+  const [promotedFlavorId, setPromotedFlavorId] = useState<number | null>(null);
+  const pizzaFlavorsSection = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (pizzaStep !== "flavors" || promotedFlavorId === null) return;
+
+    const section = pizzaFlavorsSection.current;
+    section?.focus({ preventScroll: true });
+    section?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [pizzaStep, promotedFlavorId]);
 
   // ==========================================
   // CARRINHO
@@ -161,12 +181,120 @@ export function CatalogPage() {
 
   const { addItem, openCart } = useCart();
 
+  // Promoções públicas válidas: o backend decide datas e disponibilidade.
+  const [promotions, setPromotions] = useState<PublicPromotion[]>([]);
+  const [promotionFlavors, setPromotionFlavors] = useState<PizzaCatalogFlavor[]>([]);
+  const [promotionGrandeSize, setPromotionGrandeSize] = useState<PizzaSize | null>(null);
+
+  
+
+  useEffect(() => {
+  let cancelled = false;
+
+  async function loadPromotions() {
+    try {
+      const data = await adminPromotionsApi.listPublic();
+
+      if (!cancelled) {
+        setPromotions(data);
+      }
+    } catch (error) {
+      console.error(
+        "[CATALOG] Não foi possível carregar ofertas:",
+        error,
+      );
+
+      if (!cancelled) {
+        setPromotions([]);
+      }
+    }
+  }
+
+  void loadPromotions();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+  // Busca nomes, imagens e preços reais dos sabores, sem exibir "Sabor #ID".
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPizzaOffers() {
+      try {
+        const sizesResponse = await fetch(`${API_URL}/api/pizza-sizes`);
+        if (!sizesResponse.ok) throw new Error("Falha ao carregar tamanhos");
+        const sizes = (await sizesResponse.json()) as PizzaSize[];
+        const grande = sizes.find((size) =>
+          size.isActive && size.isAvailable && normalizeSlug(size.name) === "grande",
+        );
+        if (!grande) return;
+        const flavorsResponse = await fetch(`${API_URL}/api/pizza-catalog-flavors?sizeId=${grande.id}`);
+        if (!flavorsResponse.ok) throw new Error("Falha ao carregar sabores");
+        const flavors = (await flavorsResponse.json()) as PizzaCatalogFlavor[];
+        if (!cancelled) {
+          setPromotionGrandeSize(grande);
+          setPromotionFlavors(flavors.filter((flavor) => flavor.isActive));
+        }
+      } catch (error) {
+        console.error("[CATALOG] Não foi possível carregar sabores promocionais:", error);
+      }
+    }
+    void loadPizzaOffers();
+    return () => { cancelled = true; };
+  }, []);
+
+
+  const productOffers = useMemo(() => {
+    const offers = new Map<number, PublicPromotion>();
+
+    for (const offer of promotions) {
+      if (offer.targetType === "PRODUCT" && offer.productId !== null && !offers.has(offer.productId)) {
+        offers.set(offer.productId, offer);
+      }
+    }
+
+    return offers;
+  }, [promotions]);
+
+  const getPizzaPromotionPrice = useCallback(
+    (size: PizzaSize | null, flavors: PizzaCatalogFlavor[]) => {
+      if (
+        !size ||
+        normalizeSlug(size.name) !== "grande" ||
+        flavors.length !== 1
+      ) return null;
+
+      return promotions.find(
+        (item) =>
+          item.targetType === "PIZZA_FLAVOR" &&
+          item.pizzaFlavorId === flavors[0]?.id,
+      )?.promotionalPriceCents ?? null;
+    },
+    [promotions],
+  );
+
+
+  const offerProducts = products.filter(
+    (product) => product.pricingType === "FIXED" && productOffers.has(product.id),
+  );
+
+  const offerFlavors = promotions.flatMap((offer) => {
+    if (offer.targetType !== "PIZZA_FLAVOR") return [];
+    const flavor = promotionFlavors.find((item) => item.id === offer.pizzaFlavorId);
+    if (!flavor || !promotionGrandeSize) return [];
+    return [{ offer, flavor }];
+  });
+
+
   // ==========================================
   // CATEGORIA ATIVA
   // ==========================================
 
   // Permite que a primeira categoria da API
   // seja selecionada automaticamente.
+
+  const isPromotionsCategory = selectedCategory === "promotions";
 
   const activeCategoryId =
     categories.some(
@@ -247,9 +375,14 @@ export function CatalogPage() {
   // produto real do banco para entrar no
   // carrinho e futuramente no checkout.
 
+  const pizzaCategory = categories.find(
+    (category) =>
+      ["pizza", "pizzas"].includes(normalizeSlug(category.slug)),
+  );
+
   const pizzaProduct = products.find(
     (product) =>
-      product.categoryId === activeCategoryId &&
+      product.categoryId === pizzaCategory?.id &&
       product.pricingType === "PIZZA_CUSTOM",
   );
 
@@ -265,6 +398,7 @@ export function CatalogPage() {
   // ==========================================
 
   function resetPizzaOrder() {
+    setPromotedFlavorId(null);
     setPizzaStep("size");
     setSelectedPizzaSize(null);
     setSelectedPizzaFlavors([]);
@@ -278,32 +412,37 @@ export function CatalogPage() {
   // NAVEGAÇÃO ENTRE CATEGORIAS
   // ==========================================
 
-  function handleCategorySelect(categoryId: number) {
+  function handleCategorySelect(
+    categoryId: CatalogCategorySelection,
+    pizzaOffer?: PizzaOfferSelection,
+  ) {
     if (
-      categoryId === activeCategoryId ||
+      categoryId === (isPromotionsCategory ? "promotions" : activeCategoryId) ||
       leaving
     ) {
       return;
     }
 
-    pendingCategory.current = categoryId;
+    pendingCategory.current = { categoryId, pizzaOffer };
     setLeaving(true);
   }
 
   // Uma única função finaliza a animação e o fallback.
   // Assim, a nova categoria sempre inicia em "Todos".
   const finishCategoryTransition = useCallback(() => {
-    const categoryId = pendingCategory.current;
+    const pending = pendingCategory.current;
+    if (!pending) return;
 
-    if (categoryId === null) return;
+    const { categoryId, pizzaOffer } = pending;
 
     pendingCategory.current = null;
     setSelectedCategory(categoryId);
     setSelectedSubcategory(null);
     setSelectedProduct(null);
 
-    setPizzaStep("size");
-    setSelectedPizzaSize(null);
+    setPromotedFlavorId(pizzaOffer?.flavorId ?? null);
+    setPizzaStep(pizzaOffer ? "flavors" : "size");
+    setSelectedPizzaSize(pizzaOffer?.size ?? null);
     setSelectedPizzaFlavors([]);
     setSelectedPizzaCustomizations([]);
     setPizzaFlavorTotalCents(0);
@@ -345,12 +484,15 @@ function handleAddProduct(
   notes: string,
   removedIngredients: RemovedIngredient[] = [],
 ) {
+  const offer = productOffers.get(product.id);
   addItem({
     product,
     quantity,
     notes,
     type: "PRODUCT",
-    unitPriceCents: product.priceCents,
+    unitPriceCents: offer?.promotionalPriceCents ?? product.priceCents,
+    originalUnitPriceCents: product.priceCents,
+    promotionId: offer?.id,
     removedIngredients,
   });
 
@@ -385,12 +527,15 @@ function handleAddProduct(
     }
 
     // Adiciona o produto sem observações.
+    const offer = productOffers.get(product.id);
     addItem({
       product,
       quantity,
       notes: "",
       type: "PRODUCT",
-      unitPriceCents: product.priceCents,
+      unitPriceCents: offer?.promotionalPriceCents ?? product.priceCents,
+      originalUnitPriceCents: product.priceCents,
+      promotionId: offer?.id,
     });
 
     // Abre a sacola após adicionar.
@@ -443,15 +588,15 @@ function handleAddProduct(
       ),
     );
 
-    setPizzaFlavorTotalCents(
-      totalPriceCents,
-    );
+    const effectivePrice =
+      getPizzaPromotionPrice(selectedPizzaSize, flavors) ??
+      totalPriceCents;
+
+    setPizzaFlavorTotalCents(effectivePrice);
 
     setSelectedPizzaAddons([]);
 
-    setPizzaTotalPriceCents(
-      totalPriceCents,
-    );
+    setPizzaTotalPriceCents(effectivePrice);
 
     setPizzaStep("addons");
   }
@@ -466,9 +611,7 @@ function handleAddProduct(
   ) {
     setSelectedPizzaAddons(addons);
 
-    setPizzaTotalPriceCents(
-      totalPriceCents,
-    );
+    setPizzaTotalPriceCents(totalPriceCents);
 
     setPizzaStep("review");
   }
@@ -477,11 +620,17 @@ function handleAddProduct(
   // PIZZA — ADICIONAR À SACOLA
   // ==========================================
 
-  function handleAddPizzaToCart() {
+  function addPizzaToCart(
+    size: PizzaSize | null,
+    flavors: PizzaCatalogFlavor[],
+    customizations: PizzaFlavorCustomization[],
+    addons: PizzaAddon[],
+    totalCents: number,
+  ) {
     if (
       !pizzaProduct ||
-      !selectedPizzaSize ||
-      selectedPizzaFlavors.length === 0
+      !size ||
+      flavors.length === 0
     ) {
       return;
     }
@@ -494,18 +643,18 @@ function handleAddProduct(
       // As remoções ficam estruturadas em pizza.flavors,
       // não duplicadas nas observações do cliente.
       notes: "",
-      unitPriceCents: pizzaTotalPriceCents,
+      unitPriceCents: totalCents,
 
       pizza: {
         size: {
-          id: selectedPizzaSize.id,
-          name: selectedPizzaSize.name,
-          slices: selectedPizzaSize.slices,
-          basePriceCents: selectedPizzaSize.basePriceCents,
+          id: size.id,
+          name: size.name,
+          slices: size.slices,
+          basePriceCents: size.basePriceCents,
         },
 
-        flavors: selectedPizzaFlavors.map((flavor) => {
-          const customization = selectedPizzaCustomizations.find(
+        flavors: flavors.map((flavor) => {
+          const customization = customizations.find(
             (item) => item.flavorId === flavor.id,
           );
 
@@ -524,7 +673,7 @@ function handleAddProduct(
           };
         }),
 
-        addons: selectedPizzaAddons.map((addon) => ({
+        addons: addons.map((addon) => ({
           id: addon.id,
           name: addon.name,
           priceCents: addon.priceCents,
@@ -542,7 +691,7 @@ function handleAddProduct(
 
   if (loading) {
     return (
-      <main className="flex min-h-[65dvh] items-center justify-center bg-[#fffaf5] px-5">
+      <main className="flex min-h-[calc(100dvh-var(--public-header-height))] items-center justify-center bg-[#fffaf5] px-5">
         <div className="flex flex-col items-center gap-4 text-center">
           <LoaderCircle
             size={38}
@@ -568,7 +717,7 @@ function handleAddProduct(
 
   if (error) {
     return (
-      <main className="flex min-h-[65dvh] items-center justify-center bg-[#fffaf5] px-5">
+      <main className="flex min-h-[calc(100dvh-var(--public-header-height))] items-center justify-center bg-[#fffaf5] px-5">
         <div className="w-full max-w-md rounded-2xl border border-red-100 bg-white p-8 text-center shadow-sm">
           <h1 className="text-xl font-black text-stone-900">
             Não foi possível carregar o cardápio.
@@ -597,7 +746,7 @@ function handleAddProduct(
 
   if (categories.length === 0) {
     return (
-      <main className="flex min-h-[65dvh] items-center justify-center bg-[#fffaf5] px-5">
+      <main className="flex min-h-[calc(100dvh-var(--public-header-height))] items-center justify-center bg-[#fffaf5] px-5">
         <div className="max-w-md text-center">
           <ShoppingBag
             size={40}
@@ -623,47 +772,43 @@ function handleAddProduct(
 
   return (
     <>
-      <main className="min-h-[calc(100dvh-89px)] bg-[#fffaf5] sm:min-h-[calc(100dvh-105px)]">
-        <div className="mx-auto max-w-6xl px-5 py-8 md:px-8 md:py-10">
-          {/* CABEÇALHO */}
-
-          <header className="text-center">
-            <span className="inline-flex items-center justify-center gap-2 rounded-full bg-orange-700 px-5 py-2 text-xs font-bold uppercase tracking-[0.15em] text-white shadow-md shadow-orange-700/15">
-              <ShoppingBag
-                size={15}
-                aria-hidden="true"
-              />
-              Faça seu pedido
-            </span>
-
-            <h1 className="mx-auto mt-4 max-w-3xl text-3xl font-black leading-tight tracking-tight text-stone-950 sm:text-4xl">
-              Seu próximo pedido começa aqui.
-            </h1>
-
-            <p className="mt-3 text-sm leading-relaxed text-stone-600 sm:text-base">
-              Escolha uma categoria e encontre seu favorito.
-            </p>
+      <main className="min-h-[calc(100dvh-var(--public-header-height))] bg-[#fffaf5]">
+        <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+          <header className="relative isolate flex min-h-28 items-center overflow-hidden rounded-2xl bg-[#211d17] px-5 py-4 text-[#fff9ed] sm:min-h-36 sm:px-8">
+            <img
+              src="/images/cardapio-pizza.jpg"
+              alt=""
+              className="pointer-events-none absolute inset-0 -z-20 h-full w-full object-cover object-[68%_50%] sm:object-center"
+            />
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-r from-[#211d17] via-[#211d17]/75 to-transparent" />
+            <div>
+              <h1 className="restaurant-display text-4xl leading-none tracking-tight sm:text-6xl">
+                Cardápio
+              </h1>
+              <p className="mt-2 max-w-56 text-sm text-stone-100 sm:max-w-none sm:text-base">
+                Escolha o que vai à mesa hoje.
+              </p>
+            </div>
           </header>
 
           {/* CATEGORIAS */}
 
-          <div className="mt-7 sm:mt-8">
-            <CategoryTabs
-              categories={categories}
-              selectedCategory={activeCategoryId}
-              onSelect={handleCategorySelect}
-            />
-          </div>
+
+          <CategoryTabs
+            categories={categories}
+            selectedCategory={isPromotionsCategory ? "promotions" : activeCategoryId}
+            onSelect={handleCategorySelect}
+          />
 
           {/* CONTEÚDO DA CATEGORIA */}
 
           <section
             aria-label="Produtos e personalização"
             aria-busy={leaving}
-            className="mt-8 sm:mt-10"
+            className="mt-5 sm:mt-6"
           >
             <div
-              key={activeCategoryId}
+              key={isPromotionsCategory ? "promotions" : activeCategoryId}
               inert={leaving}
               className={
                 leaving
@@ -682,42 +827,100 @@ function handleAddProduct(
                 }
               }}
             >
-              {isPizzaCategory ? (
+              {isPromotionsCategory ? (
+                <div>
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-11 items-center justify-center rounded-2xl bg-orange-100 text-orange-700">
+                      <Star size={23} fill="currentColor" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <h2 id="category-title" className="text-2xl font-black tracking-tight text-stone-900">Promoções</h2>
+                      <p className="mt-1 text-sm text-stone-500">Produtos e pizzas com ofertas especiais disponíveis.</p>
+                    </div>
+                  </div>
+                  {offerProducts.length === 0 && (!pizzaProduct || offerFlavors.length === 0) ? (
+                    <div className="mt-6 rounded-2xl border border-dashed border-orange-200 bg-white p-10 text-center">
+                      <Star className="mx-auto text-orange-300" size={32} />
+                      <p className="mt-3 font-bold text-stone-800">Nenhuma promoção disponível no momento.</p>
+                      <p className="mt-1 text-sm text-stone-500">Confira novamente em breve!</p>
+                    </div>
+                  ) : (
+                    <div className="catalog-short-list mt-4 grid gap-3 md:grid-cols-2">
+
+                      {offerProducts.map((product) => (
+                        <ProductCard
+                          key={product.id}
+                          product={product}
+                          offer={productOffers.get(product.id)}
+                          categoryLabel={
+                            subcategories.find((category) => category.id === product.subcategoryId)?.name ??
+                            categories.find((category) => category.id === product.categoryId)?.name
+                          }
+                          onView={handleViewProduct}
+                          onAddToCart={handleQuickAddProduct}
+                        />
+                      ))}
+                      {pizzaCategory && pizzaProduct && promotionGrandeSize && offerFlavors.map(({ offer, flavor }) => (
+                        <ProductCard
+                          key={`offer-flavor-${offer.id}`}
+                          product={{
+                            ...pizzaProduct,
+                            name: `Pizza ${flavor.name}`,
+                            description: flavor.description,
+                            imageUrl: flavor.imageUrl,
+                            priceCents: promotionGrandeSize.basePriceCents + flavor.additionalPriceCents +
+                              (flavor.isPremium ? flavor.premiumAdditionalCents : 0),
+                          }}
+                          offer={offer}
+                          categoryLabel={`Pizza ${promotionGrandeSize.name} · 1 sabor`}
+                          onView={() => handleCategorySelect(pizzaCategory.id, {
+                            size: promotionGrandeSize,
+                            flavorId: flavor.id,
+                          })}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : isPizzaCategory ? (
                 // ==================================
                 // FLUXO EXCLUSIVO DE PIZZAS
                 // ==================================
 
                 <>
+                  {pizzaStep !== "size" && pizzaStep !== "flavors" && (
+                    <PizzaOrderProgress className="mb-3" step={pizzaStep} />
+                  )}
+
                   {/* ETAPA 1: TAMANHO */}
 
                   {pizzaStep === "size" && (
-                    <PizzaSizeSelector
-                      onContinue={
-                        handlePizzaSizeContinue
-                      }
-                    />
+                    <PizzaSizeSelector onContinue={handlePizzaSizeContinue} />
                   )}
 
                   {/* ETAPA 2: SABORES */}
 
                   {pizzaStep === "flavors" &&
                     selectedPizzaSize && (
-                      <PizzaFlavorSelector
-                        sizeId={selectedPizzaSize.id}
-                        sizeName={selectedPizzaSize.name}
-                        basePriceCents={
-                          selectedPizzaSize.basePriceCents
-                        }
-                        maxFlavors={
-                          selectedPizzaSize.maxFlavors
-                        }
-                        onBack={() =>
-                          setPizzaStep("size")
-                        }
-                        onContinue={
-                          handlePizzaFlavorsContinue
-                        }
-                      />
+                      <div
+                        ref={pizzaFlavorsSection}
+                        tabIndex={-1}
+                        className="scroll-mt-[calc(var(--public-header-height)+1rem)] focus:outline-none"
+                      >
+                        <PizzaFlavorSelector
+                          sizeId={selectedPizzaSize.id}
+                          sizeName={selectedPizzaSize.name}
+                          promotions={promotions}
+                          promotedFlavorId={promotedFlavorId}
+                          basePriceCents={selectedPizzaSize.basePriceCents}
+                          maxFlavors={selectedPizzaSize.maxFlavors}
+                          onBack={resetPizzaOrder}
+                          onContinue={handlePizzaFlavorsContinue}
+                          onAddOfferToCart={(flavors, totalCents, customizations) =>
+                            addPizzaToCart(selectedPizzaSize, flavors, customizations, [], totalCents)
+                          }
+                        />
+                      </div>
                     )}
 
                   {/* ETAPA 3: ADICIONAIS */}
@@ -902,7 +1105,13 @@ function handleAddProduct(
 
                         <button
                           type="button"
-                          onClick={handleAddPizzaToCart}
+                          onClick={() => addPizzaToCart(
+                            selectedPizzaSize,
+                            selectedPizzaFlavors,
+                            selectedPizzaCustomizations,
+                            selectedPizzaAddons,
+                            pizzaTotalPriceCents,
+                          )}
                           disabled={!pizzaProduct}
                           className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-700 px-5 py-3 text-sm font-black text-white shadow-md shadow-orange-900/10 transition hover:bg-orange-800 disabled:cursor-not-allowed disabled:bg-stone-300"
                         >
@@ -990,7 +1199,7 @@ function handleAddProduct(
 
                   <div
                     className={
-                      showSubcategoryTabs ? "mt-7" : ""
+                      showSubcategoryTabs ? "mt-4" : ""
                     }
                   >
                     <h2
@@ -1011,22 +1220,21 @@ function handleAddProduct(
 
                   <div
                     key={activeSubcategory ?? "all"}
-                    className="catalog-products-enter mt-5"
+                    className="catalog-products-enter mt-3"
                   >
                     {visibleProducts.length > 0 ? (
-                      <div className="grid gap-4 sm:grid-cols-3 lg:gap-5">
-                        {visibleProducts.map(
-                          (product) => (
-                            
-<ProductCard
-  key={product.id}
-  product={product}
-  onView={handleViewProduct}
-  onAddToCart={handleQuickAddProduct}
-/>
 
-                          ),
-                        )}
+                      <div className={visibleProducts.length <= 2 ? "catalog-short-list grid gap-3 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5"}>
+                        {visibleProducts.map((product) => (
+                          <ProductCard
+                            key={product.id}
+                            product={product}
+                            offer={productOffers.get(product.id)}
+                            categoryLabel={subcategoryName || categoryName}
+                            onView={handleViewProduct}
+                            onAddToCart={handleQuickAddProduct}
+                          />
+                        ))}
                       </div>
                     ) : (
                       <div className="rounded-2xl border border-dashed border-orange-200 bg-white/80 px-6 py-12 text-center">
@@ -1073,6 +1281,7 @@ function handleAddProduct(
         <ProductDetailsModal
           key={selectedProduct.id}
           product={selectedProduct}
+          promotionalPriceCents={productOffers.get(selectedProduct.id)?.promotionalPriceCents}
           onClose={handleCloseProduct}
           onAdd={handleAddProduct}
         />

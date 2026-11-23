@@ -1,91 +1,66 @@
-import {
-  CheckCircle2,
-  Clock3,
-  ShoppingBag,
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight, CircleUserRound, ReceiptText } from "lucide-react";
 import { Link } from "react-router-dom";
+import type { CustomerDashboardSection } from "./CustomerDashboardSidebar";
 
-const stats = [
+const shortcuts = [
   {
-    label: "Pedidos no total",
-    value: "0",
-    icon: ShoppingBag,
+    section: "orders",
+    title: "Meus pedidos",
+    description: "Veja o status do seu pedido ou consulte compras anteriores.",
+    icon: ReceiptText,
   },
   {
-    label: "Em andamento",
-    value: "0",
-    icon: Clock3,
+    section: "profile",
+    title: "Meu perfil",
+    description: "Atualize seus dados, telefone e endereço de entrega.",
+    icon: CircleUserRound,
   },
-  {
-    label: "Concluídos",
-    value: "0",
-    icon: CheckCircle2,
-  },
-];
+] as const;
 
-export function CustomerDashboardOverview() {
+type CustomerDashboardOverviewProps = {
+  firstName?: string;
+  onSectionChange: (section: CustomerDashboardSection) => void;
+};
+
+export function CustomerDashboardOverview({ firstName, onSectionChange }: CustomerDashboardOverviewProps) {
   return (
-    <div className="space-y-8">
-      <section className="overflow-hidden rounded-3xl bg-linear-to-br from-orange-700 to-orange-900 p-6 text-white shadow-lg shadow-orange-900/10 sm:p-9">
-        <p className="text-sm font-semibold text-orange-100">
-          Bem-vindo ao seu espaço
-        </p>
-
-        <h2 className="mt-2 max-w-xl text-2xl font-black leading-tight sm:text-3xl">
-          Acompanhe seus pedidos por aqui.
+    <div className="space-y-5 sm:space-y-6">
+      <section className="relative isolate overflow-hidden rounded-2xl bg-[#302a22] px-5 py-6 text-[#fff9ed] sm:px-7 sm:py-8">
+        <img src="/images/restaurante-salao.jpg" alt="" className="absolute inset-y-0 right-0 -z-20 h-full w-[64%] object-cover object-center" />
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-r from-[#302a22] from-35% via-[#302a22]/90 via-55% to-[#302a22]/35" aria-hidden="true" />
+        <h2 className="restaurant-display max-w-xl wrap-break-word text-3xl leading-tight tracking-tight sm:text-4xl">
+          {firstName ? "Olá, " + firstName + "." : "Que bom ter você por aqui."}
         </h2>
-
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-orange-50">
-          Consulte seus pedidos e encontre seus sabores favoritos no
-          cardápio.
-        </p>
-
+        <p className="mt-2 max-w-xs text-sm leading-relaxed text-stone-100">Escolha o que vai à mesa no seu próximo pedido.</p>
         <Link
           to="/cardapio"
-          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-orange-800 transition hover:bg-orange-50"
+          className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#eadbc4] px-4 text-sm font-bold text-[#2d251c] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
         >
-          Explorar cardápio
+          Explorar cardápio <ArrowUpRight size={16} aria-hidden="true" />
         </Link>
       </section>
 
-      <section aria-label="Resumo dos pedidos">
-        <h2 className="text-lg font-black text-stone-900">
-          Resumo dos pedidos
-        </h2>
-
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {stats.map(({ label, value, icon: Icon }) => (
-            <article
-              key={label}
-              className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+      <section aria-labelledby="customer-shortcuts-title">
+        <h2 id="customer-shortcuts-title" className="mb-3 text-base font-bold text-stone-900">Acesso rápido</h2>
+        <div className="grid gap-3 lg:grid-cols-2">
+          {shortcuts.map(({ section, title, description, icon: Icon }) => (
+            <button
+              key={section}
+              type="button"
+              onClick={() => onSectionChange(section)}
+              className="group flex min-w-0 items-center gap-3 rounded-2xl border border-stone-200 bg-[#fffcf7] p-4 text-left shadow-sm transition-colors hover:border-orange-300 hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-800 sm:p-5"
             >
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-stone-600">
-                  {label}
-                </p>
-
-                <span className="flex size-10 items-center justify-center rounded-xl bg-orange-50 text-orange-700">
-                  <Icon size={20} aria-hidden="true" />
-                </span>
-              </div>
-
-              <p className="mt-4 text-3xl font-black text-stone-900">
-                {value}
-              </p>
-            </article>
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#f2e5d5] text-[#754223]">
+                <Icon size={20} aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-bold text-stone-900">{title}</span>
+                <span className="mt-1 block text-sm leading-snug text-stone-600">{description}</span>
+              </span>
+              <ArrowRight size={18} aria-hidden="true" className="shrink-0 text-[#754223] transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+            </button>
           ))}
         </div>
-      </section>
-
-      <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-black text-stone-900">
-          Pedidos recentes
-        </h2>
-
-        <p className="mt-2 text-sm leading-relaxed text-stone-600">
-          Seus pedidos aparecerão aqui quando você fizer a primeira
-          compra.
-        </p>
       </section>
     </div>
   );

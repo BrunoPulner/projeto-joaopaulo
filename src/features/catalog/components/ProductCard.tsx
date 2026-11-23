@@ -8,8 +8,11 @@ import {
   Plus,
   ShoppingBag,
   Pizza,
+  Star,
+  Tag,
 } from "lucide-react";
 
+import type { PublicPromotion } from "../../account/admin/api/admin-promotions.api";
 import type { CatalogProduct } from "../types/catalog.types";
 
 import { resolveCatalogImageUrl } from "../api/catalog.api";
@@ -20,6 +23,8 @@ import { resolveCatalogImageUrl } from "../api/catalog.api";
 
 type ProductCardProps = {
   product: CatalogProduct;
+  offer?: Pick<PublicPromotion, "name" | "promotionalPriceCents">;
+  categoryLabel?: string | null;
 
   onView: (product: CatalogProduct) => void;
 
@@ -44,6 +49,8 @@ const currency = new Intl.NumberFormat("pt-BR", {
 
 export function ProductCard({
   product,
+  offer,
+  categoryLabel,
   onView,
   onAddToCart,
 }: ProductCardProps) {
@@ -63,7 +70,11 @@ export function ProductCard({
   const isCustomPizza =
     product.pricingType === "PIZZA_CUSTOM";
 
-  const price = product.priceCents / 100;
+
+  const priceCents = offer?.promotionalPriceCents ?? product.priceCents;
+  const hasDiscount = priceCents < product.priceCents;
+  const lowStock = !isCustomPizza && product.stockQuantity !== null &&
+    product.stockQuantity > 0 && product.stockQuantity <= 5;
 
   // ==========================================
   // QUANTIDADE
@@ -118,6 +129,7 @@ export function ProductCard({
   return (
     <article
       className="
+        catalog-product-card
         group
         relative
         flex
@@ -127,7 +139,7 @@ export function ProductCard({
         overflow-hidden
         rounded-2xl
         border
-        border-stone-200
+        border-orange-950/10
         bg-white
         shadow-sm
         transition-all
@@ -149,8 +161,10 @@ export function ProductCard({
         onClick={handleViewProduct}
         aria-label={`Ver detalhes de ${product.name}`}
         className="
+          catalog-product-photo
           relative
-          aspect-16/10
+          aspect-4/3
+          sm:aspect-16/10
           w-full
           shrink-0
           cursor-pointer
@@ -229,6 +243,7 @@ export function ProductCard({
 
         <span
           className="
+            catalog-product-open-icon
             absolute
             right-3
             top-3
@@ -252,9 +267,21 @@ export function ProductCard({
           <ArrowUpRight size={17} />
         </span>
 
+        {offer ? (
+          <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-800 px-2.5 py-1.5 text-xs font-bold text-white shadow-sm">
+            <Tag size={13} aria-hidden="true" />
+            Em oferta
+          </span>
+        ) : product.isFeatured && (
+          <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-[#f4e4cb] px-2.5 py-1.5 text-xs font-bold text-[#4b3521] shadow-sm">
+            <Star size={13} aria-hidden="true" />
+            Destaque
+          </span>
+        )}
+
         {/* IDENTIFICAÇÃO DA PIZZA */}
 
-        {isCustomPizza && (
+        {isCustomPizza && !offer && (
           <span
             className="
               absolute
@@ -285,6 +312,7 @@ export function ProductCard({
 
       <div
         className="
+          catalog-product-info
           flex
           min-w-0
           flex-1
@@ -308,6 +336,10 @@ export function ProductCard({
             focus-visible:outline-orange-700
           "
         >
+          {categoryLabel && (
+            <span className="mb-1 text-xs font-semibold text-stone-600">{categoryLabel}</span>
+          )}
+
           <div
             className="
               flex
@@ -334,21 +366,15 @@ export function ProductCard({
 
             <div className="shrink-0 text-right">
               {isCustomPizza && (
-                <span className="block text-[10px] font-semibold text-stone-400">
-                  A partir de
-                </span>
+                <span className="block text-xs font-semibold text-stone-500">A partir de</span>
               )}
-
-              <span
-                className="
-                  whitespace-nowrap
-                  text-base
-                  font-black
-                  text-orange-700
-                  sm:text-lg
-                "
-              >
-                {currency.format(price)}
+              {hasDiscount && (
+                <s className="block whitespace-nowrap text-xs text-stone-500">
+                  {currency.format(product.priceCents / 100)}
+                </s>
+              )}
+              <span className={`whitespace-nowrap text-base font-black sm:text-lg ${offer ? "text-emerald-800" : "text-orange-700"}`}>
+                {currency.format(priceCents / 100)}
               </span>
             </div>
           </div>
@@ -357,7 +383,7 @@ export function ProductCard({
             <p
               className="
                 mt-2
-                line-clamp-2
+                line-clamp-3
                 text-xs
                 leading-relaxed
                 text-stone-500
@@ -367,6 +393,16 @@ export function ProductCard({
               {product.description}
             </p>
           )}
+          {offer && (
+            <span className="mt-2 text-xs font-semibold text-emerald-800">{offer.name}</span>
+          )}
+          {lowStock && (
+            <span className="mt-2 text-xs font-semibold text-amber-800">Últimas unidades</span>
+          )}
+          <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-orange-800">
+            {isCustomPizza ? (offer ? "Ver sabor da oferta" : "Ver tamanhos e sabores") : "Ver detalhes"}
+            <ArrowUpRight size={13} aria-hidden="true" />
+          </span>
         </button>
 
         {/* =====================================
@@ -375,6 +411,7 @@ export function ProductCard({
 
         <div
           className="
+            catalog-product-controls
             mt-4
             flex
             items-center

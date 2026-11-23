@@ -12,7 +12,6 @@ import {
   RefreshCw,
   Search,
   ShoppingBag,
-  UtensilsCrossed,
   Truck,
   X,
 } from "lucide-react";
@@ -296,25 +295,6 @@ export function AdminDashboardOrders() {
 
   return (
     <div className="space-y-5 pb-8 sm:space-y-6">
-      {/* CABEÇALHO */}
-      <section className="relative overflow-hidden rounded-[26px] bg-linear-to-r from-[#a92b06] via-[#c8380a] to-[#eb570f] px-5 py-6 text-white shadow-sm sm:px-8 sm:py-8">
-        <div className="pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full border-40 border-white/5" />
-        <div className="pointer-events-none absolute bottom-0 right-20 h-32 w-32 translate-y-1/2 rounded-full bg-white/5" />
-        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-orange-50">
-              <ClipboardList size={13} /> Central de pedidos
-            </div>
-            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">Gerencie seus pedidos</h2>
-            <p className="mt-2 max-w-lg text-sm leading-relaxed text-orange-50/90">Acompanhe o fluxo de atendimento, confira os itens e mantenha tudo organizado.</p>
-          </div>
-          <div className="flex items-center gap-3 self-start rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-sm">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15"><UtensilsCrossed size={20} /></div>
-            <div><p className="text-[11px] text-orange-50/80">Pedidos em andamento</p><p className="text-2xl font-black leading-tight">{activeCount}</p></div>
-          </div>
-        </div>
-      </section>
-
       {/* INDICADORES */}
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[
@@ -334,7 +314,7 @@ export function AdminDashboardOrders() {
       {/* FILTROS */}
       <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
         <div className="flex flex-col gap-3 border-b border-stone-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div><h3 className="flex items-center gap-2 text-base font-black text-stone-900"><Filter size={18} className="text-orange-600" /> Lista de pedidos</h3><p className="mt-1 text-xs text-stone-500">Encontre rapidamente o que precisa</p></div>
+          <div><h3 className="flex items-center gap-2 text-base font-black text-stone-900"><Filter size={18} className="text-orange-600" /> Buscar e filtrar pedidos</h3></div>
           <button type="button" onClick={() => void handleRefresh()} disabled={refreshing || loading} className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-xl border border-stone-200 bg-white px-4 text-xs font-bold text-stone-700 transition hover:bg-orange-50 hover:text-orange-700 disabled:opacity-50"><RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />{refreshing ? "Atualizando..." : "Atualizar pedidos"}</button>
         </div>
         <div className="space-y-4 p-4 sm:p-5">
@@ -342,7 +322,7 @@ export function AdminDashboardOrders() {
             <label className="relative min-w-0 flex-1"><Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por número, nome ou e-mail..." aria-label="Buscar pedido ou cliente" className="min-h-11 w-full rounded-xl border border-stone-200 bg-[#fcfbfa] pl-11 pr-4 text-sm outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100" /></label>
             <select aria-label="Filtrar pedidos por status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as AdminOrderStatus | "ALL")} className="min-h-11 rounded-xl border border-stone-200 bg-[#fcfbfa] px-3 text-sm text-stone-700 outline-none focus:border-orange-500"><option value="ALL">Todos os status</option>{STATUSES.map((status) => <option key={status} value={status}>{ORDER_STATUS_LABELS[status]}</option>)}</select>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex flex-wrap gap-2">
             {quickFilters.map((filter) => (
               <button key={filter.value} type="button" onClick={() => setStatusFilter(filter.value)} aria-pressed={statusFilter === filter.value} className={`inline-flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition ${statusFilter === filter.value ? "border-orange-600 bg-orange-600 text-white shadow-sm" : "border-stone-200 bg-white text-stone-600 hover:border-orange-200 hover:bg-orange-50"}`}>
                 {filter.label}<span className={`rounded-md px-1.5 py-0.5 text-[10px] ${statusFilter === filter.value ? "bg-white/20 text-white" : "bg-stone-100 text-stone-500"}`}>{filter.count}</span>
@@ -365,12 +345,12 @@ export function AdminDashboardOrders() {
           <div className="grid gap-3">
             {filteredOrders.map((order) => (
               <article key={order.id} className="group overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition hover:border-orange-200 hover:shadow-md">
-                <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:gap-6">
+                <div className="flex flex-col gap-4 p-4 sm:p-5 xl:flex-row xl:items-center xl:gap-5">
                   <div className="flex min-w-0 flex-1 items-start gap-3.5">
                     <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${order.fulfillmentType === "DELIVERY" ? "bg-orange-50 text-orange-700" : "bg-stone-100 text-stone-700"}`}>{order.fulfillmentType === "DELIVERY" ? <Truck size={21} /> : <ShoppingBag size={21} />}</div>
                     <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h4 className="text-base font-black tracking-tight text-stone-900 sm:text-lg">{order.orderNumber}</h4><StatusBadge status={order.status} /></div><p className="mt-1 flex items-center gap-1.5 text-xs text-stone-500"><CalendarDays size={13} />{formatOrderDate(order.createdAt)}</p><p className="mt-2 truncate text-sm font-bold text-stone-800">{order.customerName}</p></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 border-t border-stone-100 pt-3 sm:grid-cols-3 lg:w-[44%] lg:border-l lg:border-t-0 lg:py-1 lg:pl-6">
+                  <div className="grid grid-cols-2 gap-4 border-t border-stone-100 pt-3 sm:grid-cols-3 xl:w-[44%] xl:border-l xl:border-t-0 xl:py-1 xl:pl-5">
                     <div><p className="text-[11px] font-medium text-stone-400">Modalidade</p><p className="mt-1 text-xs font-bold text-stone-700">{FULFILLMENT_TYPE_LABELS[order.fulfillmentType]}</p><p className="mt-1 text-[11px] text-stone-400">{order.items.reduce((sum, item) => sum + item.quantity, 0)} itens</p></div>
                     <div><p className="text-[11px] font-medium text-stone-400">Pagamento</p><p className={`mt-1 text-xs font-bold ${order.paymentStatus === "PAID" ? "text-emerald-700" : "text-amber-700"}`}>{PAYMENT_STATUS_LABELS[order.paymentStatus]}</p></div>
                     <div className="col-span-2 sm:col-span-1"><p className="text-[11px] font-medium text-stone-400">Valor total</p><p className="mt-1 whitespace-nowrap text-lg font-black text-stone-900">{formatOrderPrice(order.totalCents)}</p></div>

@@ -6,6 +6,7 @@ import {
   Flame,
   Hamburger,
   Pizza,
+  Star,
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
@@ -15,13 +16,17 @@ import type { CatalogCategory } from "../types/catalog.types";
 import { resolveCatalogImageUrl } from "../api/catalog.api";
 
 // ============================================
-// PROPRIEDADES
+// TIPOS
 // ============================================
+
+export type CatalogCategorySelection =
+  | number
+  | "promotions";
 
 type CategoryTabsProps = {
   categories: CatalogCategory[];
-  selectedCategory: number | null;
-  onSelect: (categoryId: number) => void;
+  selectedCategory: CatalogCategorySelection | null;
+  onSelect: (categoryId: CatalogCategorySelection) => void;
 };
 
 // ============================================
@@ -36,8 +41,6 @@ const categoryImages: Record<string, string> = {
 };
 
 const categoryIcons: Record<string, LucideIcon> = {
-  lanches: Hamburger,
-  lanche: Hamburger,
   pizzas: Pizza,
   pizza: Pizza,
   bebidas: Beer,
@@ -62,16 +65,16 @@ type CategoryIconProps = {
 
 function CategoryIcon({ category }: CategoryIconProps) {
   const slug = normalizeSlug(
-  category.slug ?? String(category.id),
-);
-
-  const uploadedImage = resolveCatalogImageUrl(
-    category.imageUrl,
+    category.slug ?? String(category.id),
   );
+
+  const isBurgerCategory = ["lanche", "lanches"].includes(slug) ||
+    ["lanche", "lanches"].includes(normalizeSlug(category.name));
+  const uploadedImage = isBurgerCategory ? null : resolveCatalogImageUrl(category.imageUrl);
 
   const fallbackImage = categoryImages[slug];
 
-  const Icon = categoryIcons[slug] ?? Flame;
+  const Icon = isBurgerCategory ? Hamburger : categoryIcons[slug] ?? Flame;
 
   const [failedImage, setFailedImage] = useState<
     string | null
@@ -87,7 +90,7 @@ function CategoryIcon({ category }: CategoryIconProps) {
       aria-hidden="true"
       className="
         flex
-        size-8
+        size-5
         shrink-0
         items-center
         justify-center
@@ -129,7 +132,7 @@ function CategoryIcon({ category }: CategoryIconProps) {
         </span>
       ) : (
         <Icon
-          size={28}
+          size={21}
           strokeWidth={1.7}
           className="block"
         />
@@ -147,120 +150,37 @@ export function CategoryTabs({
   selectedCategory,
   onSelect,
 }: CategoryTabsProps) {
+  const items = [
+    { id: "promotions" as const, label: "Promoções", icon: <Star size={21} aria-hidden="true" /> },
+    ...categories.map((category) => ({
+      id: category.id,
+      label: category.name,
+      icon: <CategoryIcon category={category} />,
+    })),
+  ];
+
   return (
     <div
       role="group"
       aria-label="Categorias do cardápio"
-      className="
-        category-tabs-enter
-
-        mx-auto
-        flex
-        w-full
-        min-w-0
-        max-w-4xl
-        flex-wrap
-        justify-center
-
-        gap-2
-        sm:gap-3
-      "
+      className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(6rem,100%),1fr))] gap-2 sm:mt-4 sm:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] sm:gap-2.5"
     >
-      {categories.map((category, index) => {
-        const selected =
-          selectedCategory === category.id;
+      {items.map(({ id, label, icon }, index) => {
+        const selected = selectedCategory === id;
 
         return (
           <button
-            key={category.id}
+            key={id}
             type="button"
             aria-pressed={selected}
-            onClick={() => onSelect(category.id)}
-            style={{
-              animationDelay: `${100 + index * 70}ms`,
-            }}
-            className={`
-              category-tab-enter
-
-              flex
-              min-h-20
-
-              w-[calc((100%-1rem)/3)]
-              min-w-0
-
-              flex-col
-              items-center
-              justify-center
-              gap-2
-
-              rounded-2xl
-              border
-
-              px-2
-              py-3
-
-              text-xs
-              font-bold
-
-              transition
-              duration-300
-
-              focus-visible:outline-2
-              focus-visible:outline-offset-4
-              focus-visible:outline-orange-700
-
-              motion-reduce:transform-none
-              motion-reduce:transition-none
-
-              sm:min-h-24
-              sm:w-28
-              sm:text-sm
-
-              md:w-32
-
-              ${
-                selected
-                  ? `
-                    border-orange-700
-                    bg-orange-700
-                    text-white
-                    shadow-md
-                    shadow-orange-700/20
-                  `
-                  : `
-                    border-stone-200
-                    bg-white
-                    text-stone-700
-                    shadow-sm
-
-                    hover:-translate-y-0.5
-                    hover:border-orange-300
-                    hover:bg-orange-50
-                    hover:text-orange-700
-                  `
-              }
-            `}
+            onClick={() => onSelect(id)}
+            style={{ animationDelay: `${Math.min(index, 8) * 38}ms` }}
+            className={`category-tab-enter flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-2 py-1.5 text-xs font-bold shadow-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-800 motion-reduce:transition-none sm:min-h-13 sm:gap-2 sm:text-sm ${
+              selected ? "border-orange-800 bg-orange-800 text-white" : "border-stone-200 bg-white text-stone-800 hover:border-orange-300 hover:bg-orange-50"
+            }`}
           >
-            <span
-              className={
-                selected
-                  ? "text-white"
-                  : "text-orange-700"
-              }
-            >
-              <CategoryIcon category={category} />
-            </span>
-
-            <span
-              className="
-                max-w-full
-                truncate
-                leading-5
-              "
-              title={category.name}
-            >
-              {category.name}
-            </span>
+            <span aria-hidden="true" className={selected ? "shrink-0 text-white" : "shrink-0 text-orange-800"}>{icon}</span>
+            <span className="min-w-0 break-words leading-tight">{label}</span>
           </button>
         );
       })}

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type CategoryVideoProps = {
   src: string;
@@ -6,6 +6,7 @@ type CategoryVideoProps = {
 };
 
 export function CategoryVideo({ src, title }: CategoryVideoProps) {
+  const [open, setOpen] = useState(false);
   const frameRef = useRef<HTMLElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -46,37 +47,42 @@ export function CategoryVideo({ src, title }: CategoryVideoProps) {
       window.removeEventListener("scroll", updateParallax);
       cancelAnimationFrame(animationFrame);
     };
-  }, [src]);
+  }, [src, open]);
 
   return (
-    <section
-      ref={frameRef}
-      aria-label={`Vídeo de ${title}`}
-      className="relative left-1/2 mt-14 h-64 w-screen -translate-x-1/2 overflow-hidden bg-stone-950 sm:mt-16 sm:h-72 lg:h-80"
-    >
-      <video
-        ref={videoRef}
-        key={src}
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="metadata"
-        aria-label={`Vídeo de ${title}`}
-        className="absolute left-1/2 top-1/2 h-[calc(100%+48px)] w-full object-cover"
-        style={{
-          transform: "translate3d(-50%, -50%, 0)",
-          objectPosition: "center 50%",
-        }}
-      >
-        <source src={src} type="video/mp4" />
-        Seu navegador não conseguiu reproduzir este vídeo.
-      </video>
+    <details className="mt-3 text-xs text-stone-600" onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="w-fit cursor-pointer rounded-md py-1 font-semibold hover:text-orange-800">Ver vídeo de {title}</summary>
+      {open && (
+        <section
+          ref={frameRef}
+          aria-label={`Vídeo de ${title}`}
+          className="relative mt-2 h-52 overflow-hidden rounded-xl bg-stone-950 sm:h-64"
+        >
+          <video
+            ref={videoRef}
+            key={src}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            aria-label={`Vídeo de ${title}`}
+            className="absolute left-1/2 top-1/2 h-[calc(100%+48px)] w-full object-cover"
+            style={{
+              transform: "translate3d(-50%, -50%, 0)",
+              objectPosition: "center 50%",
+            }}
+          >
+            <source src={src} type="video/mp4" />
+            Seu navegador não conseguiu reproduzir este vídeo.
+          </video>
 
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-black/10"
-      />
-    </section>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-black/10"
+          />
+        </section>
+      )}
+    </details>
   );
 }

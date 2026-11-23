@@ -53,13 +53,9 @@ export function AdminDashboardOverview({
 
   return (
     <div className="space-y-7">
-      <section className="rounded-3xl bg-linear-to-br from-orange-700 to-orange-900 p-6 text-white shadow-lg shadow-orange-900/10 sm:p-8">
-        <p className="text-sm font-semibold text-orange-100">
-          Bem-vindo ao seu painel
-        </p>
-
+      <section className="rounded-2xl bg-[#302a22] p-5 text-white sm:p-6">
         <h2 className="mt-2 text-2xl font-black leading-tight sm:text-3xl">
-          Seu restaurante em um só lugar.
+          Acompanhar pedidos
         </h2>
 
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-orange-50">
@@ -89,7 +85,7 @@ export function AdminDashboardOverview({
           <p className="text-sm text-stone-500">{today}</p>
         </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
           {stats.map(
             ({
               label,

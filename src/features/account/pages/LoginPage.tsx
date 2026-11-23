@@ -1,261 +1,50 @@
-import {
-  ArrowLeft,
-  Flame,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { GoogleLoginButton } from "../../auth/components/GoogleLoginButton";
 import { LoginSuccessRedirect } from "../components/LoginSuccessRedirect";
-
 import { LoginForm } from "../components/LoginForm";
 import { LoginIntro } from "../components/LoginIntro";
 
 export function LoginPage() {
   return (
-    <main
-  className="
-    relative
-    flex
-    min-h-[calc(100dvh-88px)]
-    items-center
-    justify-center
-    overflow-hidden
-    bg-linear-to-br
-    from-[#fff7ed]
-    via-[#fffaf5]
-    to-[#fff1e8]
-    px-5
-    py-10
-
-    sm:min-h-[calc(100dvh-104px)]
-    sm:py-14
-  "
->
-      {/* Decoração do fundo */}
-      <div
-        aria-hidden="true"
-        className="
-          pointer-events-none
-          absolute
-          -left-32
-          top-10
-          h-80
-          w-80
-          rounded-full
-          bg-orange-200/35
-          blur-3xl
-        "
-      />
-
-      <div
-        aria-hidden="true"
-        className="
-          pointer-events-none
-          absolute
-          -bottom-40
-          -right-24
-          h-96
-          w-96
-          rounded-full
-          bg-red-200/30
-          blur-3xl
-        "
-      />
-
-      <div
-        aria-hidden="true"
-        className="
-          pointer-events-none
-          absolute
-          right-[12%]
-          top-[10%]
-          h-40
-          w-40
-          rounded-full
-          bg-amber-200/25
-          blur-3xl
-        "
-      />
-
-      {/* Card principal */}
-      <div
-        className="
-          login-card-enter
-
-          relative
-          z-10
-          grid
-          w-full
-          max-w-5xl
-          overflow-hidden
-          rounded-[28px]
-          border
-          border-orange-100/80
-          bg-white
-          shadow-2xl
-          shadow-orange-950/10
-
-          lg:grid-cols-2
-        "
-      >
+    <main className="min-h-screen bg-[#f3eae0] px-4 py-5 sm:px-8 sm:py-8 lg:grid lg:min-h-dvh lg:place-items-center lg:p-8">
+      <div className="login-card-enter mx-auto grid w-full max-w-6xl overflow-hidden rounded-2xl border border-[#ded1c1] bg-[#fffcf7] shadow-[0_20px_64px_rgba(42,29,17,0.13)] sm:rounded-3xl lg:grid-cols-[1.05fr_1fr]">
         <LoginIntro />
 
-        {/* Área do formulário */}
-        <section
-          className="
-            relative
-            flex
-            items-center
-            overflow-hidden
-            bg-white
-            px-6
-            py-9
-
-            sm:px-10
-            sm:py-12
-
-            lg:px-12
-          "
-        >
-          {/* Mancha decorativa interna */}
-          <div
-            aria-hidden="true"
-            className="
-              pointer-events-none
-              absolute
-              -right-24
-              -top-24
-              h-56
-              w-56
-              rounded-full
-              bg-orange-100/60
-              blur-3xl
-            "
-          />
-
-          {/* Detalhe lateral */}
-          <div
-            aria-hidden="true"
-            className="
-              absolute
-              right-0
-              top-1/2
-              hidden
-              h-40
-              w-1
-              -translate-y-1/2
-              rounded-l-full
-              bg-linear-to-b
-              from-orange-400
-              via-orange-700
-              to-red-600
-
-              lg:block
-            "
-          />
-
-          <div className="relative mx-auto w-full max-w-md">
-            {/* Voltar */}
-            <Link
-              to="/"
-              className="
-                group
-                inline-flex
-                items-center
-                gap-2
-                text-sm
-                font-bold
-                text-stone-500
-                transition-colors
-                duration-200
-
-                hover:text-orange-700
-              "
-            >
-              <span
-                className="
-                  flex
-                  h-8
-                  w-8
-                  items-center
-                  justify-center
-                  rounded-full
-                  bg-orange-50
-                  text-orange-700
-                  transition-all
-                  duration-200
-
-                  group-hover:-translate-x-0.5
-                  group-hover:bg-orange-100
-                "
+        <section aria-labelledby="login-title" className="flex items-center px-5 py-6 sm:px-10 sm:py-8 lg:px-12">
+          <div className="mx-auto w-full max-w-sm">
+            <div className="mb-6 flex min-h-9 flex-wrap items-center justify-between gap-x-2 gap-y-2 sm:mb-8">
+              <Link
+                to="/"
+                className="group inline-flex min-h-9 items-center gap-2 rounded-sm text-sm font-semibold text-stone-700 transition-colors hover:text-orange-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-800"
               >
-                <ArrowLeft
-                  size={15}
-                  aria-hidden="true"
-                />
-              </span>
-
-              Voltar ao início
-            </Link>
-
-            {/* Título */}
-            <div className="mt-8">
-              <div
-                className="
-                  inline-flex
-                  items-center
-                  gap-2
-                  rounded-full
-                  border
-                  border-orange-100
-                  bg-orange-50
-                  px-3
-                  py-1.5
-                  text-[11px]
-                  font-black
-                  uppercase
-                  tracking-[0.14em]
-                  text-orange-700
-                "
-              >
-                <Flame
-                  size={14}
-                  aria-hidden="true"
-                />
-
-                Área do cliente
-              </div>
-
-              <h1
-                className="
-                  mt-4
-                  text-3xl
-                  font-black
-                  tracking-tight
-                  text-stone-950
-
-                  sm:text-[2rem]
-                "
-              >
-                Acesse seu perfil
-              </h1>
-
-              <p className="mt-3 max-w-sm text-sm leading-relaxed text-stone-600">
-                Entre na sua conta para acompanhar seus
-                pedidos e acessar suas informações.
-              </p>
-
-              <div className="mt-4 flex items-center gap-2 text-xs font-medium text-stone-400">
-                <ShieldCheck
-                  size={15}
-                  className="text-emerald-600"
-                  aria-hidden="true"
-                />
-
-                Acesso seguro à sua conta
-              </div>
+                <ArrowLeft size={16} aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5 motion-reduce:transition-none" />
+                Voltar ao início
+              </Link>
+              <img src="/images/restaurante-wordmark.svg" alt="restaurante.com" width={140} height={28} className="lg:hidden" />
             </div>
+
+            <h1 id="login-title" className="restaurant-display text-[clamp(2.35rem,6vw,3.4rem)] leading-none tracking-tight text-[#241b13]">
+              Entre na sua conta
+            </h1>
+            <p className="mt-2.5 text-sm leading-relaxed text-stone-600">
+              Consulte seus pedidos e gerencie seus endereços.
+            </p>
+
             <LoginSuccessRedirect />
+            <div className="mt-5 sm:mt-6">
+              <GoogleLoginButton />
+            </div>
+
+            <div className="my-5 flex items-center gap-3 sm:my-6">
+              <span className="h-px flex-1 bg-[#e5dcd0]" aria-hidden="true" />
+              <h2 id="admin-login-title" className="text-xs font-semibold text-stone-600">
+                Acesso administrativo
+              </h2>
+              <span className="h-px flex-1 bg-[#e5dcd0]" aria-hidden="true" />
+            </div>
+
             <LoginForm />
           </div>
         </section>

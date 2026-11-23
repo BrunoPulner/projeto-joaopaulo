@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 
 import { pool } from "../../lib/db.js";
+import { findActivePromotionPrice } from "../promotions/promotions.service.js";
 import { checkDeliveryAvailability } from
   "../delivery-settings/delivery-settings.service.js";
 
@@ -465,8 +466,17 @@ async function prepareItem(
   // PREÇO
   // ==========================================
 
-  const unitPriceCents =
-    product.priceCents + additionalCents;
+  // Promoção substitui o preço do produto, sem alterar adicionais.
+  const promotionalPriceCents = await findActivePromotionPrice(
+    client,
+    "PRODUCT",
+    product.id,
+  );
+
+  const basePriceCents = promotionalPriceCents ?? product.priceCents;
+  assertMoney(basePriceCents);
+
+  const unitPriceCents = basePriceCents + additionalCents;
 
   const totalPriceCents =
     unitPriceCents * item.quantity;
@@ -720,7 +730,26 @@ async function preparePizzaItem(
     0,
   );
   const addonsCents = pizzaAddons.reduce((sum, addon) => sum + addon.priceCents, 0);
-  const unitPriceCents = size.basePriceCents + flavorsCents + addonsCents;
+
+  // A promoção do sabor substitui o valor da pizza completa
+  // (base + sabor), exclusivamente para Grande de um sabor.
+  // Adicionais permanecem cobrados normalmente.
+  const isGrande = size.name.trim().toLocaleLowerCase("pt-BR") === "grande";
+  const eligibleForPromotion = isGrande && flavors.length === 1;
+
+  const promotionalPizzaPriceCents = eligibleForPromotion
+    ? await findActivePromotionPrice(
+        client,
+        "PIZZA_FLAVOR",
+        flavors[0]!.id,
+      )
+    : null;
+
+  const normalPizzaPriceCents = size.basePriceCents + flavorsCents;
+  const pizzaPriceCents = promotionalPizzaPriceCents ?? normalPizzaPriceCents;
+  assertMoney(pizzaPriceCents);
+
+  const unitPriceCents = pizzaPriceCents + addonsCents;
   const totalPriceCents = unitPriceCents * item.quantity;
   assertMoney(unitPriceCents);
   assertMoney(totalPriceCents);

@@ -232,3 +232,34 @@
     animation: none;
   }
 }
+
+.catalog-short-list .catalog-product-card {
+  display: grid;
+  grid-template-columns: minmax(4.75rem, 28%) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.catalog-short-list .catalog-product-photo {
+  height: 100%;
+  min-height: 7rem;
+  aspect-ratio: auto;
+}
+
+.catalog-short-list .catalog-product-info {
+  padding: 0.75rem;
+}
+
+.catalog-short-list .catalog-product-controls {
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+
+@media (max-width: 639px) {
+  .catalog-short-list .catalog-product-open-icon {
+    top: auto;
+    right: 0.5rem;
+    bottom: 0.5rem;
+  }
+}

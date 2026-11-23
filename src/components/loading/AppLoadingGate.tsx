@@ -10,8 +10,8 @@ type AppLoadingGateProps = {
   children: ReactNode;
 };
 
-const MIN_LOADING_TIME = 1400;
-const EXIT_ANIMATION_TIME = 500;
+const MIN_LOADING_TIME = 360;
+const EXIT_ANIMATION_TIME = 220;
 
 export function AppLoadingGate({
   children,
@@ -20,52 +20,16 @@ export function AppLoadingGate({
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    const startedAt = performance.now();
-
-    let finishTimer: number | undefined;
     let exitTimer: number | undefined;
 
-    function finishLoading() {
-      const elapsed =
-        performance.now() - startedAt;
-
-      const remainingTime = Math.max(
-        0,
-        MIN_LOADING_TIME - elapsed,
-      );
-
-      finishTimer = window.setTimeout(() => {
-        setLeaving(true);
-
-        exitTimer = window.setTimeout(() => {
-          setLoading(false);
-        }, EXIT_ANIMATION_TIME);
-      }, remainingTime);
-    }
-
-    if (document.readyState === "complete") {
-      finishLoading();
-    } else {
-      window.addEventListener(
-        "load",
-        finishLoading,
-        { once: true },
-      );
-    }
+    const finishTimer = window.setTimeout(() => {
+      setLeaving(true);
+      exitTimer = window.setTimeout(() => setLoading(false), EXIT_ANIMATION_TIME);
+    }, MIN_LOADING_TIME);
 
     return () => {
-      window.removeEventListener(
-        "load",
-        finishLoading,
-      );
-
-      if (finishTimer) {
-        window.clearTimeout(finishTimer);
-      }
-
-      if (exitTimer) {
-        window.clearTimeout(exitTimer);
-      }
+      window.clearTimeout(finishTimer);
+      window.clearTimeout(exitTimer);
     };
   }, []);
 
@@ -74,7 +38,7 @@ export function AppLoadingGate({
     <div
       className={`
         transition-opacity
-        duration-500
+        duration-200 motion-reduce:transition-none
 
         ${
           leaving || !loading

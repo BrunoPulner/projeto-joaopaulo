@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { CheckCircle2, X } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, X } from "lucide-react";
 
 import {
   CustomerDashboardSidebar,
@@ -11,17 +11,21 @@ import {
 import { CustomerDashboardOverview } from "../components/CustomerDashboardOverview";
 import { CustomerDashboardOrders } from "../components/CustomerDashboardOrders";
 import { CustomerDashboardProfile } from "../components/CustomerDashboardProfile";
+import { useSession } from "../../../lib/auth-client";
 
-const sectionTitles: Record<CustomerDashboardSection, string> = {
-  overview: "Visão geral",
-  orders: "Meus pedidos",
-  profile: "Meu perfil",
-};
+const sections = {
+  overview: { title: "Visão geral", description: "Acesse seus pedidos e os dados da sua conta." },
+  orders: { title: "Meus pedidos", description: "Acompanhe o andamento e consulte seu histórico." },
+  profile: { title: "Meu perfil", description: "Gerencie seus dados, telefone e endereço de entrega." },
+} satisfies Record<CustomerDashboardSection, { title: string; description: string }>;
 
 export function CustomerDashboardPage() {
   const [activeSection, setActiveSection] =
     useState<CustomerDashboardSection>("overview");
 
+  const { data: session } = useSession();
+  const firstName = session?.user.name?.trim().split(/\s+/)[0];
+  const section = sections[activeSection];
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -52,8 +56,14 @@ export function CustomerDashboardPage() {
     return () => window.clearTimeout(timeout);
   }, [showLoginSuccess]);
 
+  function handleSectionChange(nextSection: CustomerDashboardSection) {
+    if (nextSection === activeSection) return;
+    setActiveSection(nextSection);
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
   return (
-    <div className="min-h-screen bg-[#fffaf5]">
+    <div className="min-h-screen bg-[#f4f3ef]">
       {/* Notificação de login realizado */}
       {showLoginSuccess && (
         <div
@@ -114,7 +124,7 @@ export function CustomerDashboardPage() {
             </p>
 
             <p className="mt-1 text-xs leading-relaxed text-stone-500">
-              Seja bem-vindo ao Espetinhos João Paulo.
+              Seja bem-vindo ao restaurante.com.
               Sua conta está conectada.
             </p>
           </div>
@@ -141,60 +151,35 @@ export function CustomerDashboardPage() {
       {/* Sidebar do cliente */}
       <CustomerDashboardSidebar
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={handleSectionChange}
       />
 
-      {/* Conteúdo principal */}
-      <main className="min-h-screen pb-24 md:ml-64 md:pb-0">
-        {/* Header */}
-        <header className="sticky top-0 z-20 border-b border-stone-200 bg-white/95 backdrop-blur">
-          <div className="mx-auto flex min-h-20 max-w-6xl items-center justify-between gap-4 px-5 md:px-8">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-orange-700">
-                Área do cliente
-              </p>
-
-              <h1 className="mt-1 text-xl font-black text-stone-900">
-                {sectionTitles[activeSection]}
-              </h1>
-            </div>
-
+      <main className="min-w-0 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:ml-60 md:pb-8 lg:ml-64">
+        <header className="sticky top-0 z-20 border-b border-stone-200 bg-[#fffcf7]/95 backdrop-blur">
+          <div className="mx-auto flex min-h-15 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 xl:px-9">
+            <p className="text-sm font-semibold text-stone-700">Minha conta</p>
             <Link
-              to="/"
-              className="
-                rounded-xl
-                border
-                border-stone-200
-                px-4
-                py-2.5
-                text-sm
-                font-semibold
-                text-stone-700
-                transition
-
-                hover:border-orange-300
-                hover:bg-orange-50
-                hover:text-orange-700
-              "
+              to="/cardapio"
+              className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 text-sm font-semibold text-stone-800 transition-colors hover:border-orange-300 hover:bg-orange-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-800"
             >
-              Voltar à loja
+              Ver cardápio <ArrowUpRight size={16} aria-hidden="true" />
             </Link>
           </div>
         </header>
 
-        {/* Seções do dashboard */}
-        <div className="mx-auto max-w-6xl px-5 py-8 md:px-8 md:py-10">
-          {activeSection === "overview" && (
-            <CustomerDashboardOverview />
-          )}
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7 xl:px-9">
+          <div className="mb-5 border-b border-stone-200 pb-4 sm:mb-6">
+            <h1 className="text-3xl font-bold tracking-tight text-[#25241f] sm:text-4xl">{section.title}</h1>
+            <p className="mt-1.5 text-sm leading-relaxed text-stone-600">{section.description}</p>
+          </div>
 
-          {activeSection === "orders" && (
-            <CustomerDashboardOrders />
-          )}
-
-          {activeSection === "profile" && (
-            <CustomerDashboardProfile />
-          )}
+          <div key={activeSection} className="customer-section-enter">
+            {activeSection === "overview" && (
+              <CustomerDashboardOverview firstName={firstName} onSectionChange={handleSectionChange} />
+            )}
+            {activeSection === "orders" && <CustomerDashboardOrders />}
+            {activeSection === "profile" && <CustomerDashboardProfile />}
+          </div>
         </div>
       </main>
     </div>

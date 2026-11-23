@@ -15,7 +15,6 @@ import {
   Navigation,
   Phone,
   Save,
-  Settings2,
   ShieldCheck,
   Smartphone,
   UserRound,
@@ -57,7 +56,7 @@ type ProfileContentProps = {
 // ============================================
 
 const inputClass =
-  "min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10";
+  "min-h-12 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#a44d29] focus:ring-4 focus:ring-[#a44d29]/15";
 
 const labelClass =
   "mb-2 block text-sm font-semibold text-slate-700";
@@ -349,27 +348,18 @@ function CustomerDashboardProfileContent({
       label: "Meu perfil",
       description: "Nome e foto",
       icon: UserRound,
-      active:
-        "border-indigo-300 bg-indigo-50 text-indigo-800 shadow-indigo-100",
-      iconBg: "bg-indigo-100 text-indigo-700",
     },
     {
       id: "phone" as const,
       label: "Telefone",
       description: "WhatsApp",
       icon: Smartphone,
-      active:
-        "border-emerald-300 bg-emerald-50 text-emerald-800 shadow-emerald-100",
-      iconBg: "bg-emerald-100 text-emerald-700",
     },
     {
       id: "address" as const,
       label: "Endereço",
       description: "Localização",
       icon: MapPin,
-      active:
-        "border-sky-300 bg-sky-50 text-sky-800 shadow-sky-100",
-      iconBg: "bg-sky-100 text-sky-700",
     },
   ];
 
@@ -407,37 +397,7 @@ function CustomerDashboardProfileContent({
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-4 lg:h-full lg:gap-5">
-      {/* =====================================
-          CABEÇALHO COMPACTO
-      ===================================== */}
-
-      <section className="relative shrink-0 overflow-hidden rounded-2xl bg-[#20354b] px-5 py-4 text-white shadow-lg shadow-slate-900/10 sm:px-6">
-        <div className="pointer-events-none absolute -right-12 -top-20 size-48 rounded-full bg-sky-400/10 blur-2xl" />
-
-        <div className="relative flex items-center gap-4">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sky-200">
-            <Settings2 size={21} />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-sky-200">
-              Minha conta
-            </p>
-            <h2 className="mt-0.5 text-lg font-black leading-tight sm:text-xl">
-              Configurações do perfil
-            </h2>
-            <p className="mt-1 text-xs leading-relaxed text-slate-300">
-              Gerencie seus dados, telefone e endereço.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* =====================================
-          ABAS
-      ===================================== */}
-
+    <div className="flex min-h-0 flex-col gap-4 lg:gap-5">
       <nav
         aria-label="Configurações do perfil"
         className="grid grid-cols-3 gap-2 sm:gap-3"
@@ -457,14 +417,14 @@ function CustomerDashboardProfileContent({
               }}
               className={`group flex min-w-0 flex-col items-center gap-2 rounded-2xl border p-3 text-center transition-all duration-200 sm:flex-row sm:p-4 sm:text-left ${
                 selected
-                  ? `${tab.active} shadow-md`
+                  ? `border-[#b9794e] bg-[#fff7eb] text-[#713c20] ring-1 ring-[#b9794e]`
                   : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
               }`}
             >
               <span
                 className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${
                   selected
-                    ? tab.iconBg
+                    ? "bg-[#f2e5d5] text-[#754223]"
                     : "bg-slate-100 text-slate-500"
                 }`}
               >
@@ -504,10 +464,10 @@ function CustomerDashboardProfileContent({
         =================================== */}
 
         {activeTab === "profile" && (
-          <section className="overflow-hidden rounded-3xl border border-indigo-100 bg-white shadow-sm">
-            <div className="border-b border-indigo-100 bg-indigo-50/60 px-5 py-5 sm:px-7">
+          <section className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+            <div className="border-b border-stone-200 bg-[#fbf5eb] px-5 py-5 sm:px-7">
               <div className="flex items-center gap-3">
-                <span className="flex size-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+                <span className="flex size-11 items-center justify-center rounded-xl bg-[#f2e5d5] text-[#754223]">
                   <UserRound size={22} />
                 </span>
 
@@ -526,7 +486,7 @@ function CustomerDashboardProfileContent({
               {/* FOTO */}
 
               <div className="flex flex-col items-center gap-5 rounded-2xl bg-slate-50 p-5 sm:flex-row">
-                <div className="flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-indigo-100 text-indigo-700 shadow-md">
+                <div className="flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#f2e5d5] text-[#754223] shadow-md">
                   {displayPhoto ? (
                     <img
                       src={displayPhoto}
@@ -591,10 +551,10 @@ function CustomerDashboardProfileContent({
         =================================== */}
 
         {activeTab === "phone" && (
-          <section className="overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm">
-            <div className="border-b border-emerald-100 bg-emerald-50/70 px-5 py-5 sm:px-7">
+          <section className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+            <div className="border-b border-stone-200 bg-[#fbf5eb] px-5 py-5 sm:px-7">
               <div className="flex items-center gap-3">
-                <span className="flex size-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                <span className="flex size-11 items-center justify-center rounded-xl bg-[#f2e5d5] text-[#754223]">
                   <Phone size={22} />
                 </span>
 
@@ -708,7 +668,7 @@ function CustomerDashboardProfileContent({
                     </h4>
                     <p className="mt-2 text-sm leading-relaxed text-emerald-900/75">
                       Este número será utilizado para receber notificações automáticas
-                      do Espetinhos João Paulo quando seu pedido for confirmado,
+                      do restaurante.com quando seu pedido for confirmado,
                       estiver em preparo, ficar pronto ou sair para entrega,
                       após a ativação desse serviço.
                     </p>
@@ -729,10 +689,10 @@ function CustomerDashboardProfileContent({
         =================================== */}
 
         {activeTab === "address" && (
-          <section className="overflow-hidden rounded-3xl border border-sky-100 bg-white shadow-sm">
-            <div className="border-b border-sky-100 bg-sky-50/70 px-5 py-5 sm:px-7">
+          <section className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+            <div className="border-b border-stone-200 bg-[#fbf5eb] px-5 py-5 sm:px-7">
               <div className="flex items-center gap-3">
-                <span className="flex size-11 items-center justify-center rounded-xl bg-sky-100 text-sky-700">
+                <span className="flex size-11 items-center justify-center rounded-xl bg-[#f2e5d5] text-[#754223]">
                   <MapPin size={22} />
                 </span>
 
@@ -752,7 +712,7 @@ function CustomerDashboardProfileContent({
                 <>
                   {/* ENDEREÇO CADASTRADO */}
 
-                  <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-5">
+                  <div className="rounded-2xl border border-stone-200 bg-[#fbf5eb] p-5">
                     <div className="flex items-center gap-2">
                       <CheckCircle2
                         size={19}
@@ -774,7 +734,7 @@ function CustomerDashboardProfileContent({
                       Rebouças, PR
                     </p>
 
-                    <div className="mt-4 flex items-center gap-2 text-xs text-sky-700">
+                    <div className="mt-4 flex items-center gap-2 text-xs text-[#754223]">
                       <Navigation size={15} />
                       Pino registrado no Google Maps
                     </div>
@@ -814,7 +774,7 @@ function CustomerDashboardProfileContent({
                   <button
                     type="button"
                     onClick={() => setMapOpen(true)}
-                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-sky-700 sm:w-auto"
+                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#a43f20] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#863019] sm:w-auto"
                   >
                     <MapPin size={18} />
                     Ver ou alterar localização
@@ -823,8 +783,8 @@ function CustomerDashboardProfileContent({
                 </>
               ) : (
                 <>
-                  <div className="rounded-2xl border border-dashed border-sky-200 bg-sky-50/50 p-7 text-center">
-                    <span className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
+                  <div className="rounded-2xl border border-dashed border-stone-200 bg-[#fbf5eb] p-7 text-center">
+                    <span className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-[#f2e5d5] text-[#754223]">
                       <MapPin size={29} />
                     </span>
 
@@ -841,7 +801,7 @@ function CustomerDashboardProfileContent({
                   <button
                     type="button"
                     onClick={() => setMapOpen(true)}
-                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-sky-700 sm:w-auto"
+                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#a43f20] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#863019] sm:w-auto"
                   >
                     <MapPin size={18} />
                     Cadastrar endereço no mapa

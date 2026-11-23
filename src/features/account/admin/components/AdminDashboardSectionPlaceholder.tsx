@@ -2,6 +2,7 @@
 import {
   Package,
   ReceiptText,
+  Tag,
   Shapes,
   Truck,
   UsersRound,
@@ -51,6 +52,13 @@ const sectionDetails: Record<Section, SectionDetails> = {
     emptyMessage:
       "As categorias serão exibidas nesta área.",
     icon: Shapes,
+  },
+
+  promotions: {
+    title: "Promoções",
+    description: "Gerencie as ofertas que aparecem no cardápio.",
+    emptyMessage: "Nenhuma promoção para exibir nesta área.",
+    icon: Tag,
   },
 
   orders: {

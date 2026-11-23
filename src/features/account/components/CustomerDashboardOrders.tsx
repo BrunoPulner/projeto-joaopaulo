@@ -667,51 +667,31 @@ export function CustomerDashboardOrders() {
     `?text=${whatsappMessage}`;
 
   return (
-    <div className="space-y-7">
-      {/* CABEÇALHO */}
-      <section className="flex flex-col gap-5 rounded-3xl bg-linear-to-br from-orange-700 to-orange-900 p-6 text-white shadow-lg shadow-orange-900/10 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-        <div>
-          <h2 className="text-2xl font-black leading-tight sm:text-3xl">
-            Acompanhe seus pedidos.
-          </h2>
-
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-orange-50 sm:text-base">
-            Veja o status, consulte seu histórico e fale
-            com a gente sempre que precisar.
-          </p>
+    <div className="space-y-5 sm:space-y-6">
+      <section aria-label="Ações dos pedidos" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-[#fffcf7] p-4 shadow-sm sm:px-5">
+        <p className="text-sm text-stone-600">Os pedidos são atualizados automaticamente.</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            disabled={refreshing || loading}
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 text-xs font-bold text-stone-700 transition-colors hover:bg-stone-50 disabled:opacity-50"
+          >
+            <RefreshCw size={15} aria-hidden="true" className={refreshing ? "animate-spin" : ""} />
+            Atualizar
+          </button>
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Falar com o restaurante pelo WhatsApp"
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#302a22] px-3 text-xs font-bold text-white transition-colors hover:bg-[#483a2b]"
+          >
+            <MessageCircle size={16} aria-hidden="true" />
+            Falar com o restaurante
+          </a>
         </div>
-
-        <a
-          href={whatsappUrl}
-          target="_blank"
-          rel="noreferrer"
-          aria-label="Falar com o restaurante pelo WhatsApp"
-          className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/50 px-4 py-3 text-sm font-bold text-white transition hover:bg-white/10"
-        >
-          <MessageCircle size={20} aria-hidden="true" />
-          Fale com o restaurante
-        </a>
       </section>
-
-      {/* ATUALIZAÇÃO */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-stone-500">
-          Os pedidos são atualizados automaticamente.
-        </p>
-
-        <button
-          type="button"
-          onClick={() => void handleRefresh()}
-          disabled={refreshing || loading}
-          className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-bold text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
-        >
-          <RefreshCw
-            size={15}
-            className={refreshing ? "animate-spin" : ""}
-          />
-          Atualizar
-        </button>
-      </div>
 
       {/* ERROS */}
       {error && (

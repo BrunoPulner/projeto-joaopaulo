@@ -1,5 +1,6 @@
 
 import { useEffect, useRef, useState } from "react";
+import { adminPromotionsApi, type PublicPromotion } from "../../account/admin/api/admin-promotions.api";
 
 import { useSession } from "../../../lib/auth-client";
 import { useCart } from "../useCart";
@@ -9,6 +10,7 @@ import { checkDeliveryAvailability } from "../delivery/api/deliveryAvailabilityA
 import {
   AlertCircle,
   ArrowRight,
+  BadgePercent,
   CheckCircle2,
   ImageOff,
   MapPin,
@@ -26,9 +28,8 @@ import {
 import type { CartItem, CartProduct } from "../cartTypes";
 
 import {
-  getCartItemTotalCents,
   getCartItemUnitPriceCents,
-  getCartSubtotalCents,
+  getCartProductPriceCents,
 } from "../cartTypes";
 
 import { resolveCatalogImageUrl } from "../../catalog/api/catalog.api";
@@ -86,6 +87,62 @@ function getStockLimit(
   }
 
   return null;
+}
+
+// ============================================
+// PREÇOS PROMOCIONAIS DA SACOLA
+// ============================================
+
+function getEffectiveCartPrice(
+  item: CartItem,
+  promotions: PublicPromotion[],
+): { unitCents: number; originalCents: number; discounted: boolean } {
+  const storedCents = getCartItemUnitPriceCents(item);
+
+  if (item.type === "PIZZA" && item.pizza) {
+    const { size, flavors, addons } = item.pizza;
+    if (size.name.trim().toLocaleLowerCase("pt-BR") !== "grande" || flavors.length !== 1) {
+      return { unitCents: storedCents, originalCents: storedCents, discounted: false };
+    }
+
+    const promotion = promotions.find(
+      (offer) => offer.targetType === "PIZZA_FLAVOR" && offer.pizzaFlavorId === flavors[0].id,
+    );
+    if (!promotion) {
+      return { unitCents: storedCents, originalCents: storedCents, discounted: false };
+    }
+
+    const addonCents = addons.reduce((sum, addon) => sum + addon.priceCents, 0);
+    const originalCents = size.basePriceCents +
+      flavors.reduce((sum, flavor) => sum + flavor.additionalPriceCents, 0) + addonCents;
+    const unitCents = promotion.promotionalPriceCents + addonCents;
+
+    return {
+      unitCents,
+      originalCents: Math.max(originalCents, unitCents),
+      discounted: unitCents < originalCents,
+    };
+  }
+
+  if (item.type !== "PIZZA") {
+    const promotion = promotions.find(
+      (offer) => offer.targetType === "PRODUCT" && offer.productId === item.product.id,
+    );
+    if (promotion) {
+      const addonCents = (item.addons ?? []).reduce(
+        (sum, addon) => sum + addon.priceCents * addon.quantity, 0,
+      );
+      const originalCents = getCartProductPriceCents(item.product) + addonCents;
+      const unitCents = promotion.promotionalPriceCents + addonCents;
+      return {
+        unitCents,
+        originalCents: Math.max(originalCents, unitCents),
+        discounted: unitCents < originalCents,
+      };
+    }
+  }
+
+  return { unitCents: storedCents, originalCents: storedCents, discounted: false };
 }
 
 // ============================================
@@ -164,6 +221,25 @@ export function CartDrawer({
   const { data: session, isPending: sessionPending } = useSession();
   const userId = session?.user?.id ?? null;
   const { clearCart } = useCart();
+  const [promotions, setPromotions] = useState<PublicPromotion[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+
+    async function loadPromotions() {
+      try {
+        const data = await adminPromotionsApi.listPublic();
+        if (active) setPromotions(data);
+      } catch (error) {
+        console.error("[CART] Erro ao atualizar promoções:", error);
+        if (active) setPromotions([]);
+      }
+    }
+
+    void loadPromotions();
+    return () => { active = false; };
+  }, [open]);
 
   // Impede duplo envio mesmo antes de o React atualizar a interface.
   const sendingRef = useRef(false);
@@ -331,7 +407,14 @@ useEffect(() => {
     0,
   );
 
-  const subtotalCents = getCartSubtotalCents(items);
+  const subtotalCents = items.reduce(
+    (sum, item) => sum + getEffectiveCartPrice(item, promotions).unitCents * item.quantity,
+    0,
+  );
+  const discountCents = items.reduce((sum, item) => {
+    const price = getEffectiveCartPrice(item, promotions);
+    return sum + Math.max(0, price.originalCents - price.unitCents) * item.quantity;
+  }, 0);
 
   const isDelivery = fulfillmentType === "DELIVERY";
 
@@ -594,9 +677,9 @@ function handleFulfillmentChange(
             CABEÇALHO
         ===================================== */}
 
-        <div className="flex min-h-18 shrink-0 items-center justify-between border-b border-stone-200 bg-white px-5">
+        <div className="flex min-h-14 shrink-0 items-center justify-between border-b border-stone-200 bg-white px-3 sm:px-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-700">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-orange-50 text-orange-700">
               <ShoppingBag
                 size={20}
                 aria-hidden="true"
@@ -636,7 +719,7 @@ function handleFulfillmentChange(
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {items.length === 0 ? (
-            <div className="flex min-h-full flex-col items-center justify-center px-6 py-20 text-center">
+            <div className="flex min-h-full flex-col items-center justify-center px-5 py-6 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-stone-100 text-stone-300">
                 <ShoppingBag
                   size={32}
@@ -655,7 +738,7 @@ function handleFulfillmentChange(
               </p>
             </div>
           ) : (
-            <div className="space-y-3 p-4 pb-4 sm:p-5">
+            <div className="space-y-2 px-3 py-2.5 sm:px-4">
               {/* PRODUTOS */}
 
               {items.map((item) => (
@@ -663,6 +746,7 @@ function handleFulfillmentChange(
                   key={item.id}
                   item={item}
                   items={items}
+                  promotions={promotions}
                   onIncrease={onIncrease}
                   onDecrease={onDecrease}
                   onRemove={onRemove}
@@ -671,292 +755,297 @@ function handleFulfillmentChange(
 
             </div>
           )}
-        </div>
 
-        {/* =====================================
-            RECEBIMENTO FIXO
-        ===================================== */}
+          {/* Recebimento e resumo */}
 
-        {items.length > 0 && (
-          <div className="shrink-0 border-t border-stone-200 bg-[#fffdfb] px-4 py-3 sm:px-5">
-            {/* MODALIDADE DE RECEBIMENTO */}
+          {items.length > 0 && (
+            <div className="space-y-2 border-t border-stone-200 px-3 py-2 sm:px-4">
+              {/* MODALIDADE DE RECEBIMENTO */}
 
-            <section
-              className="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm"
-              aria-labelledby="receiving-title"
-            >
-              <h3
-                id="receiving-title"
-                className="text-sm font-black text-stone-900"
+              <section
+                className="rounded-xl border border-stone-200 bg-white px-2.5 py-2"
+                aria-labelledby="receiving-title"
               >
-                Como deseja receber seu pedido?
-              </h3>
-
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {/* ENTREGA */}
-
-                <button
-                  type="button"
-                  aria-pressed={isDelivery}
-                  onClick={() =>
-                    handleFulfillmentChange("DELIVERY")
-                  }
-                  className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-2 py-3 text-sm font-bold transition-colors ${
-                    isDelivery
-                      ? "border-orange-600 bg-orange-50 text-orange-800"
-                      : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
-                  }`}
+                <h3
+                  id="receiving-title"
+                  className="text-sm font-black text-stone-900"
                 >
-                  <Truck
-                    size={17}
-                    aria-hidden="true"
-                  />
-                  Entrega
-                </button>
+                  Recebimento
+                </h3>
 
-                {/* RETIRADA */}
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  {/* ENTREGA */}
 
-                <button
-                  type="button"
-                  aria-pressed={!isDelivery}
-                  onClick={() =>
-                    handleFulfillmentChange("PICKUP")
-                  }
-                  className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-2 py-3 text-sm font-bold transition-colors ${
-                    !isDelivery
-                      ? "border-orange-600 bg-orange-50 text-orange-800"
-                      : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
-                  }`}
-                >
-                  <Store
-                    size={17}
-                    aria-hidden="true"
-                  />
-                  Retirada
-                </button>
-              </div>
-            </section>
-
-            {/* =====================================
-                ENDEREÇO DE ENTREGA
-            ===================================== */}
-
-            {isDelivery && (
-              <section className="mt-3 rounded-2xl border border-stone-200 bg-white p-3 shadow-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="flex items-center gap-2 text-sm font-black text-stone-900">
-                    <MapPin
+                  <button
+                    type="button"
+                    aria-pressed={isDelivery}
+                    onClick={() =>
+                      handleFulfillmentChange("DELIVERY")
+                    }
+                    className={`flex min-h-9 items-center justify-center gap-2 rounded-lg border px-2 py-1 text-sm font-bold transition-colors ${
+                      isDelivery
+                        ? "border-orange-600 bg-orange-50 text-orange-800"
+                        : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+                    }`}
+                  >
+                    <Truck
                       size={17}
-                      className="text-orange-600"
+                      aria-hidden="true"
                     />
-                    Endereço de entrega
-                  </h3>
+                    Entrega
+                  </button>
 
-                  {deliveryAddress && (
-                    <button
-                      type="button"
-                      onClick={handleChangeAddress}
-                      className="flex items-center gap-1 text-xs font-bold text-orange-700 transition hover:text-orange-800"
-                    >
-                      <Pencil size={13} />
-                      Alterar
-                    </button>
-                  )}
+                  {/* RETIRADA */}
+
+                  <button
+                    type="button"
+                    aria-pressed={!isDelivery}
+                    onClick={() =>
+                      handleFulfillmentChange("PICKUP")
+                    }
+                    className={`flex min-h-9 items-center justify-center gap-2 rounded-lg border px-2 py-1 text-sm font-bold transition-colors ${
+                      !isDelivery
+                        ? "border-orange-600 bg-orange-50 text-orange-800"
+                        : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
+                    }`}
+                  >
+                    <Store
+                      size={17}
+                      aria-hidden="true"
+                    />
+                    Retirada
+                  </button>
                 </div>
+              </section>
 
-                {addressLoading && (
-                  <p role="status" className="mt-3 text-xs font-semibold text-sky-700">
-                    Verificando o endereço cadastrado e calculando o frete...
-                  </p>
-                )}
+              {/* =====================================
+                  ENDEREÇO DE ENTREGA
+              ===================================== */}
 
-                {addressError && (
-                  <p role="alert" className="mt-3 text-xs text-red-700">
-                    {addressError}
-                  </p>
-                )}
+              {isDelivery && (
+                <section className="rounded-xl border border-stone-200 bg-white px-2.5 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="flex items-center gap-2 text-sm font-black text-stone-900">
+                      <MapPin
+                        size={17}
+                        className="text-orange-600"
+                      />
+                      Endereço de entrega
+                    </h3>
 
-                {deliveryAddress ? (
-                  <div className="mt-2 space-y-1.5">
-                    <p className="text-sm font-bold text-stone-800">
-                      {deliveryAddress.address.street},{" "}
-                      {deliveryAddress.address.number}
-                    </p>
-
-                    <p className="text-xs text-stone-500">
-                      {deliveryAddress.address.neighborhood}
-                      {" - "}
-                      {deliveryAddress.address.city}/
-                      {deliveryAddress.address.state}
-                    </p>
-
-                    {deliveryAddress.address.complement && (
-                      <p className="text-xs text-stone-500">
-                        {deliveryAddress.address.complement}
-                      </p>
-                    )}
-
-                    {/* DISPONIBILIDADE */}
-
-                    {deliveryNeedsRevalidation ? (
-                      <div className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800">
-                        <AlertCircle
-                          size={16}
-                          className="shrink-0"
-                        />
-                        Confirme novamente seu endereço
-                        para atualizar a disponibilidade
-                        e o frete.
-                      </div>
-                    ) : deliveryAvailable ? (
-                      <div className="flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-xs font-bold text-green-700">
-                        <CheckCircle2 size={16} />
-                        Entrega disponível para este endereço
-                      </div>
-                    ) : (
-                      <div className="flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700">
-                        <AlertCircle
-                          size={16}
-                          className="shrink-0"
-                        />
-                        Entrega indisponível neste endereço.
-                      </div>
-                    )}
-
-                    {deliveryNeedsRevalidation && (
+                    {deliveryAddress && (
                       <button
                         type="button"
                         onClick={handleChangeAddress}
-                        className="w-full rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 text-xs font-bold text-orange-700 hover:bg-orange-100"
+                        className="flex items-center gap-1 text-xs font-bold text-orange-700 transition hover:text-orange-800"
                       >
-                        Confirmar endereço novamente
+                        <Pencil size={13} />
+                        Alterar
                       </button>
                     )}
                   </div>
-                ) : (
-                  <div className="mt-3 space-y-3">
-                    <p className="text-xs leading-relaxed text-stone-500">
-                      Informe seu endereço para verificar
-                      a disponibilidade e calcular o frete.
+
+                  {addressLoading && (
+                    <p role="status" className="mt-1 text-xs font-semibold text-sky-700">
+                      Verificando o endereço cadastrado e calculando o frete...
                     </p>
+                  )}
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowAddressSelector(true)
-                      }
-                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-700 transition hover:bg-orange-100"
-                    >
-                      <MapPin size={17} />
-                      {userId ? "Configurar meu endereço" : "Adicionar endereço"}
-                    </button>
-                  </div>
-                )}
-              </section>
-            )}
-          </div>
-        )}
+                  {addressError && (
+                    <p role="alert" className="mt-1 text-xs text-red-700">
+                      {addressError}
+                    </p>
+                  )}
 
-        {/* =====================================
-            RESUMO FINANCEIRO
-        ===================================== */}
+                  {deliveryAddress ? (
+                    <div className="mt-1 space-y-0.5">
+                      <p className="text-sm font-bold text-stone-800">
+                        {deliveryAddress.address.street},{" "}
+                        {deliveryAddress.address.number}
+                      </p>
 
-        <div className="shrink-0 border-t border-stone-200 bg-white px-4 py-4 shadow-[0_-8px_24px_rgba(28,25,23,0.04)] sm:px-5">
-          <div className="space-y-2.5">
-            {/* SUBTOTAL */}
+                      <p className="text-xs text-stone-500">
+                        {deliveryAddress.address.neighborhood}
+                        {" - "}
+                        {deliveryAddress.address.city}/
+                        {deliveryAddress.address.state}
+                      </p>
 
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-stone-600">
-                Subtotal dos itens
-              </span>
+                      {deliveryAddress.address.complement && (
+                        <p className="text-xs text-stone-500">
+                          {deliveryAddress.address.complement}
+                        </p>
+                      )}
 
-              <strong className="font-bold text-stone-900">
-                {formatPrice(subtotalCents)}
-              </strong>
-            </div>
+                      {/* DISPONIBILIDADE */}
 
-            {/* FRETE */}
+                      {deliveryNeedsRevalidation ? (
+                        <div className="flex items-start gap-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                          <AlertCircle
+                            size={16}
+                            className="shrink-0"
+                          />
+                          Confirme novamente seu endereço
+                          para atualizar a disponibilidade
+                          e o frete.
+                        </div>
+                      ) : deliveryAvailable ? (
+                        <div className="flex items-center gap-2 rounded-md bg-green-50 px-2 py-1 text-xs font-bold text-green-700">
+                          <CheckCircle2 size={16} />
+                          Entrega disponível para este endereço
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-2 rounded-md bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">
+                          <AlertCircle
+                            size={16}
+                            className="shrink-0"
+                          />
+                          Entrega indisponível neste endereço.
+                        </div>
+                      )}
 
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-stone-600">
-                Taxa de entrega
-              </span>
+                      {deliveryNeedsRevalidation && (
+                        <button
+                          type="button"
+                          onClick={handleChangeAddress}
+                          className="min-h-9 w-full rounded-lg border border-orange-200 bg-orange-50 px-2 py-1 text-xs font-bold text-orange-700 hover:bg-orange-100"
+                        >
+                          Confirmar endereço novamente
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-1 space-y-1">
+                      <p className="text-xs leading-relaxed text-stone-500">
+                        Informe seu endereço para verificar
+                        a disponibilidade e calcular o frete.
+                      </p>
 
-              <span
-                className={`font-bold ${
-                  !isDelivery
-                    ? "text-green-700"
-                    : deliveryFeeCents !== null
-                      ? "text-orange-700"
-                      : "text-stone-500"
-                }`}
-              >
-                {!isDelivery
-                  ? "Grátis"
-                  : deliveryFeeCents !== null
-                    ? formatPrice(deliveryFeeCents)
-                    : "A calcular"}
-              </span>
-            </div>
-
-            {/* TOTAL */}
-
-            <div className="border-t border-stone-100 pt-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-black text-stone-900">
-                  {hasCalculatedTotal
-                    ? "Total"
-                    : "Total parcial"}
-                </span>
-
-                <strong className="text-xl font-black text-stone-950">
-                  {formatPrice(totalCents)}
-                </strong>
-              </div>
-
-              {isDelivery && !hasCalculatedTotal && (
-                <p className="mt-1 text-[11px] leading-relaxed text-stone-500">
-                  A taxa de entrega ainda não está
-                  incluída.
-                </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowAddressSelector(true)
+                        }
+                        className="flex w-full items-center justify-center gap-2 min-h-9 rounded-lg border border-orange-200 bg-orange-50 px-2 py-1 text-sm font-bold text-orange-700 transition hover:bg-orange-100"
+                      >
+                        <MapPin size={17} />
+                        {userId ? "Configurar meu endereço" : "Adicionar endereço"}
+                      </button>
+                    </div>
+                  )}
+                </section>
               )}
             </div>
+          )}
+
+          {items.length > 0 && (
+            <div className="border-t border-stone-200 bg-white px-3 py-2 sm:px-4">
+              <div className="space-y-1">
+                {/* SUBTOTAL */}
+
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-stone-600">
+                    Subtotal dos itens
+                  </span>
+
+                  <strong className="font-bold text-stone-900">
+                    {formatPrice(subtotalCents)}
+                  </strong>
+                </div>
+
+                {/* ECONOMIA COM OFERTAS */}
+
+                {discountCents > 0 && (
+                  <div className="flex items-center justify-between gap-3 rounded-md bg-green-50 px-2 py-1">
+                    <span className="flex items-center gap-2 text-sm font-semibold text-green-700">
+                      <BadgePercent size={16} aria-hidden="true" />
+                      Economia com ofertas
+                    </span>
+
+                    <strong className="text-sm font-black text-green-700">
+                      - {formatPrice(discountCents)}
+                    </strong>
+                  </div>
+                )}
+
+                {/* FRETE */}
+
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-stone-600">
+                    Taxa de entrega
+                  </span>
+
+                  <span
+                    className={`font-bold ${
+                      !isDelivery
+                        ? "text-green-700"
+                        : deliveryFeeCents !== null
+                          ? "text-orange-700"
+                          : "text-stone-500"
+                    }`}
+                  >
+                    {!isDelivery
+                      ? "Grátis"
+                      : deliveryFeeCents !== null
+                        ? formatPrice(deliveryFeeCents)
+                        : "A calcular"}
+                  </span>
+                </div>
+
+                {/* TOTAL */}
+
+                <div className="border-t border-stone-100 pt-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-black text-stone-900">
+                      {hasCalculatedTotal
+                        ? "Total"
+                        : "Total parcial"}
+                    </span>
+
+                    <strong className="text-xl font-black text-stone-950">
+                      {formatPrice(totalCents)}
+                    </strong>
+                  </div>
+
+                  {isDelivery && !hasCalculatedTotal && (
+                    <p className="mt-1 text-[11px] leading-relaxed text-stone-500">
+                      Frete ainda não incluído.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <footer className="shrink-0 border-t border-stone-200 bg-white px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4">
+          <div className="flex items-center gap-2">
+            {items.length > 0 && (
+              <button
+                type="button"
+                onClick={handleContinueOrder}
+                disabled={sessionPending || (isDelivery && !deliveryAvailable)}
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-orange-600 px-2 py-1.5 text-sm font-black text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-stone-300"
+              >
+                Continuar pedido
+                <ArrowRight size={16} aria-hidden="true" className="shrink-0" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-11 flex-1 rounded-xl px-2 py-1.5 text-xs font-bold text-orange-700 transition hover:bg-orange-50"
+            >
+              Continuar comprando
+            </button>
           </div>
 
-          {/* =====================================
-              CONTINUAR PEDIDO
-          ===================================== */}
-
-          <button
-            type="button"
-            onClick={handleContinueOrder}
-            disabled={
-              items.length === 0 ||
-              sessionPending ||
-              (isDelivery && !deliveryAvailable)
-            }
-            className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-5 py-3 text-sm font-black text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-stone-300"
-          >
-            Continuar pedido
-            <ArrowRight size={17} aria-hidden="true" />
-          </button>
-
           {checkoutError && (
-            <p role="alert" className="mt-2 text-center text-xs font-semibold text-red-700">
+            <p role="alert" className="mt-1 text-center text-xs font-semibold text-red-700">
               {checkoutError}
             </p>
           )}
-
-          {/* CONTINUAR COMPRANDO */}
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-2 min-h-10 w-full rounded-xl text-xs font-bold text-orange-700 transition hover:bg-orange-50"
-          >
-            Continuar comprando
-          </button>
-        </div>
+        </footer>
       </aside>
 
       <DeliveryAddressSheet
@@ -1004,6 +1093,9 @@ function handleFulfillmentChange(
                 <span>Total previsto</span>
                 <strong>{formatPrice(totalCents)}</strong>
               </div>
+              <p className="text-[11px] text-stone-500">
+                Valores sujeitos à validação das promoções no registro do pedido.
+              </p>
             </div>}
             {!confirmedOrder && (
               <p className="mt-3 text-xs text-stone-500">
@@ -1066,6 +1158,7 @@ function handleFulfillmentChange(
 type CartProductProps = {
   item: CartItem;
   items: CartItem[];
+  promotions: PublicPromotion[];
   onIncrease: (itemId: string) => void;
   onDecrease: (itemId: string) => void;
   onRemove: (itemId: string) => void;
@@ -1074,6 +1167,7 @@ type CartProductProps = {
 function CartProduct({
   item,
   items,
+  promotions,
   onIncrease,
   onDecrease,
   onRemove,
@@ -1098,10 +1192,9 @@ function CartProduct({
   // PREÇOS
   // ==========================================
 
-  const unitPriceCents =
-    getCartItemUnitPriceCents(item);
-
-  const totalCents = getCartItemTotalCents(item);
+  const effectivePrice = getEffectiveCartPrice(item, promotions);
+  const unitPriceCents = effectivePrice.unitCents;
+  const totalCents = unitPriceCents * item.quantity;
 
   // ==========================================
   // ESTOQUE
@@ -1135,10 +1228,10 @@ function CartProduct({
           PRODUTO
       ===================================== */}
 
-      <div className="flex gap-3 p-3">
+      <div className="flex gap-2 px-2.5 pt-2">
         {/* IMAGEM */}
 
-        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-orange-50">
+        <div className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-orange-50">
           {showImage && imageUrl ? (
             <img
               src={imageUrl}
@@ -1174,7 +1267,7 @@ function CartProduct({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="line-clamp-2 text-sm font-black leading-snug text-stone-900">
+              <h3 className="break-words text-sm font-black leading-snug text-stone-900">
                 {product.name}
               </h3>
 
@@ -1186,8 +1279,20 @@ function CartProduct({
               )}
 
               <p className="mt-1 text-xs font-semibold text-orange-700">
-                {formatPrice(unitPriceCents)} cada
+                {effectivePrice.discounted && (
+                  <span className="mr-2 text-stone-400 line-through">
+                    {formatPrice(effectivePrice.originalCents)}
+                  </span>
+                )}
+                <span className={effectivePrice.discounted ? "text-green-700" : ""}>
+                  {formatPrice(unitPriceCents)} cada
+                </span>
               </p>
+              {effectivePrice.discounted && (
+                <p className="mt-1 text-[11px] font-bold text-green-700">
+                  Oferta aplicada · Economize {formatPrice(effectivePrice.originalCents - unitPriceCents)} por unidade
+                </p>
+              )}
             </div>
 
             <button
@@ -1210,7 +1315,7 @@ function CartProduct({
       ===================================== */}
 
       {isPizza && item.pizza && (
-        <div className="mx-3 mb-3 rounded-xl border border-orange-100 bg-orange-50/60 p-3">
+        <div className="mx-2.5 mt-1.5 rounded-lg border border-orange-100 bg-orange-50/60 p-2">
           <div className="flex items-center gap-2 text-xs font-black text-orange-800">
             <Pizza size={15} />
             Sua pizza
@@ -1221,7 +1326,7 @@ function CartProduct({
               Sabores
             </p>
 
-            <div className="mt-2 space-y-2">
+            <div className="mt-1 space-y-1">
               {item.pizza.flavors.map((flavor) => (
                 <div
                   key={flavor.id}
@@ -1281,12 +1386,12 @@ function CartProduct({
       {!isPizza &&
         item.addons &&
         item.addons.length > 0 && (
-          <div className="mx-3 mb-3 rounded-xl border border-stone-200 bg-stone-50 p-3">
+          <div className="mx-2.5 mt-1.5 rounded-lg border border-stone-200 bg-stone-50 p-2">
             <p className="text-[11px] font-black uppercase tracking-wide text-stone-700">
               Adicionais
             </p>
 
-            <div className="mt-2 space-y-1.5">
+            <div className="mt-1 space-y-1">
               {item.addons.map((addon) => (
                 <div
                   key={addon.id}
@@ -1319,7 +1424,7 @@ function CartProduct({
 
 {item.removedIngredients &&
   item.removedIngredients.length > 0 && (
-    <div className="mx-3 mb-3 rounded-xl border border-red-100 bg-red-50 p-3">
+    <div className="mx-2.5 mt-1.5 rounded-lg border border-red-100 bg-red-50 p-2">
       <div className="flex items-center gap-2">
         <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-100 text-red-700">
           <X size={15} aria-hidden="true" />
@@ -1336,7 +1441,7 @@ function CartProduct({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="mt-1 flex flex-wrap gap-1">
         {item.removedIngredients.map((ingredient) => (
           <span
             key={ingredient.id}
@@ -1355,7 +1460,7 @@ function CartProduct({
       ===================================== */}
 
       {notes && (
-        <div className="mx-3 mb-3 rounded-xl bg-orange-50 px-3 py-2.5">
+        <div className="mx-2.5 mt-1.5 rounded-lg bg-orange-50 p-2">
           <p className="text-[11px] font-bold uppercase tracking-wide text-orange-700">
             Observação
           </p>
@@ -1370,7 +1475,7 @@ function CartProduct({
           QUANTIDADE E TOTAL
       ===================================== */}
 
-      <div className="mt-3 flex items-center justify-between border-t border-stone-100 px-3 py-3">
+      <div className="mt-1.5 flex items-center justify-between border-t border-stone-100 px-2.5 py-1.5">
         <div className="flex items-center rounded-xl border border-stone-200 bg-stone-50 p-0.5">
           <button
             type="button"
@@ -1400,9 +1505,7 @@ function CartProduct({
         </div>
 
         <div className="text-right">
-          <span className="block text-[11px] text-stone-400">
-            Total
-          </span>
+          <span className="mr-1.5 text-xs text-stone-500">Total do item</span>
 
           <strong className="text-sm font-black text-stone-900">
             {formatPrice(totalCents)}

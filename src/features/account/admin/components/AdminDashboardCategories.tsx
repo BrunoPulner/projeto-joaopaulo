@@ -351,17 +351,8 @@ export function AdminDashboardCategories() {
           CABEÇALHO
       ===================================== */}
 
-      <section className="flex flex-col gap-5 rounded-3xl bg-linear-to-br from-orange-700 to-orange-900 p-6 text-white shadow-lg shadow-orange-900/10 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-        <div>
-          <h2 className="text-2xl font-black sm:text-3xl">
-            Categorias do cardápio
-          </h2>
-
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-orange-50">
-            Organize as categorias para seus clientes
-            encontrarem os produtos com facilidade.
-          </p>
-        </div>
+      <section className="flex flex-col gap-3 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <h2 className="text-base font-bold text-stone-900">Estrutura do cardápio</h2>
 
         <button
           type="button"
@@ -372,7 +363,7 @@ export function AdminDashboardCategories() {
             saving ||
             processingId !== null
           }
-          className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-orange-800 transition hover:bg-orange-50 disabled:opacity-50"
+          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#302a22] px-4 text-sm font-semibold text-white transition hover:bg-[#483a2b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-700 disabled:opacity-50"
         >
           <Plus size={19} aria-hidden="true" />
           Nova categoria

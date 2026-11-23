@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { GoogleLoginButton } from "../../auth/components/GoogleLoginButton";
 import { authClient } from "../../../lib/auth-client";
 
 export function LoginForm() {
@@ -93,12 +92,13 @@ export function LoginForm() {
     <form
       onSubmit={handleSubmit}
       noValidate
-      className="mt-8 space-y-5"
+      aria-labelledby="admin-login-title"
+      className="space-y-3.5"
     >
       <div>
         <label
           htmlFor="email"
-          className="mb-2 block text-sm font-semibold text-stone-700"
+          className="mb-1.5 block text-sm font-semibold text-stone-700"
         >
           E-mail
         </label>
@@ -124,7 +124,7 @@ export function LoginForm() {
             }}
             aria-invalid={Boolean(error)}
             aria-describedby={error ? "login-error" : undefined}
-            className="min-h-12 w-full rounded-xl border border-stone-200 bg-white pl-11 pr-4 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-orange-600 focus:ring-4 focus:ring-orange-600/10 disabled:opacity-60"
+            className="min-h-12 w-full rounded-xl border border-[#ded1c1] bg-white pl-11 pr-4 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-[#a44d29] focus:ring-4 focus:ring-[#a44d29]/15 disabled:opacity-60"
           />
         </div>
       </div>
@@ -132,7 +132,7 @@ export function LoginForm() {
       <div>
         <label
           htmlFor="password"
-          className="mb-2 block text-sm font-semibold text-stone-700"
+          className="mb-1.5 block text-sm font-semibold text-stone-700"
         >
           Senha
         </label>
@@ -158,7 +158,7 @@ export function LoginForm() {
             }}
             aria-invalid={Boolean(error)}
             aria-describedby={error ? "login-error" : undefined}
-            className="min-h-12 w-full rounded-xl border border-stone-200 bg-white pl-11 pr-12 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-orange-600 focus:ring-4 focus:ring-orange-600/10 disabled:opacity-60"
+            className="min-h-12 w-full rounded-xl border border-[#ded1c1] bg-white pl-11 pr-12 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-[#a44d29] focus:ring-4 focus:ring-[#a44d29]/15 disabled:opacity-60"
           />
 
           <button
@@ -194,7 +194,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-700 px-5 font-bold text-white transition hover:bg-orange-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#a43f20] px-5 font-bold text-white transition-colors hover:bg-[#863019] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? (
           <>
@@ -206,23 +206,10 @@ export function LoginForm() {
             Autenticando...
           </>
         ) : (
-          "Entrar"
+          "Entrar no painel"
         )}
       </button>
 
-      <div className="relative py-2">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-stone-200" />
-        </div>
-
-        <div className="relative flex justify-center">
-          <span className="bg-white px-3 text-xs font-medium text-stone-400">
-            ou continue com
-          </span>
-        </div>
-      </div>
-
-      <GoogleLoginButton />
     </form>
   );
 }

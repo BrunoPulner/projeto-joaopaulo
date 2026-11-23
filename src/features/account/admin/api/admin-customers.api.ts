@@ -1,6 +1,6 @@
 
  // ============================================
- // ESPETINHOS JOÃO PAULO
+ // restaurante.com
  // API ADMINISTRATIVA DE CLIENTES
  // ============================================
 
